@@ -1,6 +1,7 @@
 package com.chessdigitizer.backend.application.service;
 
 import com.chessdigitizer.backend.domain.model.Book;
+import com.chessdigitizer.backend.domain.model.ChessFile;
 import com.chessdigitizer.backend.domain.port.in.LoadBookUseCase;
 import com.chessdigitizer.backend.domain.port.out.BookRepository;
 import com.chessdigitizer.backend.application.config.GlobalProperties.StorageProperties;
@@ -72,5 +73,10 @@ public class BookService implements LoadBookUseCase {
         } catch (IOException e) {
             throw new RuntimeException("Error eliminando Libro: "+bookId,e);
         }
+    }
+
+    @Override
+    public Optional<ChessFile> getChessFile(UUID chessFileId) {
+        return bookRepository.findChessFileById(chessFileId);
     }
 }

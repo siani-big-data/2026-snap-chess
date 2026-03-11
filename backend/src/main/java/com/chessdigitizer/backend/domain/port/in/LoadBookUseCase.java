@@ -1,6 +1,8 @@
 package com.chessdigitizer.backend.domain.port.in;
 
 import com.chessdigitizer.backend.domain.model.Book;
+import com.chessdigitizer.backend.domain.model.ChessFile;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -10,4 +12,5 @@ public interface LoadBookUseCase {
     Optional<Book> getBook(UUID bookId);
     List<Book> getAllBooks();
     void deleteBook(UUID bookId);
+    Optional<ChessFile> getChessFile(UUID chessFileId);
 }

@@ -11,6 +11,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/books")
@@ -42,6 +44,18 @@ public class BookController {
     @GetMapping("")
     public ResponseEntity<List<Book>> getAllBooks() {
         return ResponseEntity.ok(loadBookUseCase.getAllBooks());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Book> getBook(@PathVariable UUID id) {
+        Optional<Book> book = loadBookUseCase.getBook(id);
+        return book.isPresent() ? ResponseEntity.ok(book.get()) : ResponseEntity.notFound().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBook(@PathVariable UUID id) {
+        loadBookUseCase.deleteBook(id);
+        return ResponseEntity.noContent().build();
     }
 
 
