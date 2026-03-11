@@ -1,7 +1,7 @@
 package com.chessdigitizer.backend.infrastructure.adapter.out;
 
 import com.chessdigitizer.backend.domain.model.Book;
-import com.chessdigitizer.backend.infrastructure.config.GlobalProperties;
+import com.chessdigitizer.backend.application.config.GlobalProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

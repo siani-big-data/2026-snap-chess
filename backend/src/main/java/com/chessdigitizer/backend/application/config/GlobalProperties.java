@@ -1,4 +1,4 @@
-package com.chessdigitizer.backend.infrastructure.config;
+package com.chessdigitizer.backend.application.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;

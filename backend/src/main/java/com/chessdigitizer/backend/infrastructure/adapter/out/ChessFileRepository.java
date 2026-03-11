@@ -2,7 +2,7 @@ package com.chessdigitizer.backend.infrastructure.adapter.out;
 
 import com.chessdigitizer.backend.domain.model.Book;
 import com.chessdigitizer.backend.infrastructure.adapter.out.DTO.ChessFileDTO;
-import com.chessdigitizer.backend.infrastructure.config.GlobalProperties.StorageProperties;
+import com.chessdigitizer.backend.application.config.GlobalProperties.StorageProperties;
 import com.chessdigitizer.backend.domain.port.out.BookRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;

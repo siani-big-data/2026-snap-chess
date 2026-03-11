@@ -3,7 +3,7 @@ package com.chessdigitizer.backend.infrastructure.config;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
-import com.chessdigitizer.backend.infrastructure.config.GlobalProperties.StorageProperties;
+import com.chessdigitizer.backend.application.config.GlobalProperties.StorageProperties;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

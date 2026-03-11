@@ -1,0 +1,76 @@
+package com.chessdigitizer.backend.application.service;
+
+import com.chessdigitizer.backend.domain.model.Book;
+import com.chessdigitizer.backend.domain.port.in.LoadBookUseCase;
+import com.chessdigitizer.backend.domain.port.out.BookRepository;
+import com.chessdigitizer.backend.application.config.GlobalProperties.StorageProperties;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.springframework.stereotype.Service;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Service
+@Slf4j
+public class BookService implements LoadBookUseCase {
+
+
+    BookRepository bookRepository;
+    StorageProperties storageProperties;
+
+
+    public BookService(BookRepository bookRepository, StorageProperties storageProperties) {
+        this.bookRepository = bookRepository;
+        this.storageProperties = storageProperties;
+
+    }
+
+    @Override
+    public Book importBook(byte[] fileBytes, String originalFilename, String title) {
+
+        UUID uuid = UUID.randomUUID();
+        Path path = Paths.get(storageProperties.getBooksPath(), uuid + ".pdf");
+        try {
+            Files.write(path, fileBytes, StandardOpenOption.CREATE_NEW);
+            int numberOfPages;
+            try (PDDocument doc = Loader.loadPDF(path.toFile())) {
+                numberOfPages = doc.getNumberOfPages();
+            }
+            Book book = new Book(uuid, title, originalFilename, numberOfPages);
+            bookRepository.save(book);
+            log.info("Libro importado: {} with id {}", title, uuid);
+            return book;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public Optional<Book> getBook(UUID bookId) {
+       return bookRepository.findById(bookId);
+    }
+
+    @Override
+    public List<Book> getAllBooks() {
+        return bookRepository.findAll();
+    }
+
+    @Override
+    public void deleteBook(UUID bookId) {
+        Path path = Paths.get(storageProperties.getBooksPath(), bookId + ".pdf");
+        try {
+            Files.deleteIfExists(path);
+            bookRepository.deleteById(bookId);
+            log.info("Libro eliminado: con id {}", bookId);
+        } catch (IOException e) {
+            throw new RuntimeException("Error eliminando Libro: "+bookId,e);
+        }
+    }
+}
