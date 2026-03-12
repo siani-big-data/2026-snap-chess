@@ -2,7 +2,9 @@ package com.chessdigitizer.backend.infrastructure.adapter.in;
 
 
 import com.chessdigitizer.backend.domain.model.Book;
+import com.chessdigitizer.backend.domain.model.ChessFile;
 import com.chessdigitizer.backend.domain.port.in.LoadBookUseCase;
+import com.chessdigitizer.backend.infrastructure.adapter.in.response.ChessFileResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -56,6 +58,14 @@ public class BookController {
     public ResponseEntity<Void> deleteBook(@PathVariable UUID id) {
         loadBookUseCase.deleteBook(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/chess")
+    public ResponseEntity<ChessFileResponse> getChessFile(@PathVariable UUID id) {
+        return loadBookUseCase.getChessFile(id)
+                .map(ChessFileResponse::fromDomain)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
 
