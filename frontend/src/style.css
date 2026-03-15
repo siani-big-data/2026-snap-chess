@@ -1,0 +1,53 @@
+/* 1. Box sizing mejorado para todos los elementos */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* 2. Quitar márgenes por defecto de los elementos que suelen estorbar */
+* {
+  margin: 0;
+  padding: 0;
+  font: inherit;
+}
+
+/* 3. Evitar que las imágenes se desborden y darles bloque por defecto */
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* 4. Altura completa del viewport para el body y scroll suave */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased; /* Mejor renderizado de fuentes en Mac/iOS */
+}
+
+/* 5. Quitar puntos de listas (opcional, pero muy común) */
+ul, ol {
+  list-style: none;
+}
+
+/* 6. Arreglar enlaces para que no hereden colores extraños por defecto */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* 7. Botones y formularios: quitar bordes y fondos feos de fábrica */
+button, input, textarea, select {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* 8. Asegurar que las tablas se vean normales */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
