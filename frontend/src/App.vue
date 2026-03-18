@@ -3,7 +3,7 @@
 
     <aside class="sidebar-left">
       <div class="sidebar-header">
-        <span class="app-logo">♟</span>
+        <span class="app-logo">♞</span>
         <span class="app-title">ChessPDF</span>
       </div>
       <BookList @bookSelected="selectedBookId = $event" />
@@ -13,6 +13,7 @@
       <PdfViewer
           v-if="selectedBookId"
           :bookId="selectedBookId"
+          :key="selectedBookId"
       />
       <div v-else class="empty-state">
         <p>♟ Selecciona un libro para empezar</p>
