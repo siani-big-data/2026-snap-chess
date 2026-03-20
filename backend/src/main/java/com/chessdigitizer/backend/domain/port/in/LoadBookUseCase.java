@@ -13,4 +13,5 @@ public interface LoadBookUseCase {
     List<Book> getAllBooks();
     void deleteBook(UUID bookId);
     Optional<ChessFile> getChessFile(UUID chessFileId);
+    Book renameBook(UUID id, String newTitle);
 }

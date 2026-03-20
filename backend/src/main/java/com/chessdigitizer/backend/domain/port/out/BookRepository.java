@@ -13,5 +13,6 @@ public interface BookRepository {
     List<Book> findAll();
     void deleteById(UUID id);
     Optional<ChessFile> findChessFileById(UUID chessFileId);
+    void updateTitle(UUID id, String newTitle);
 
 }

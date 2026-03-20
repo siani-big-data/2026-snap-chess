@@ -2,7 +2,6 @@ package com.chessdigitizer.backend.infrastructure.adapter.in;
 
 
 import com.chessdigitizer.backend.domain.model.Book;
-import com.chessdigitizer.backend.domain.model.ChessFile;
 import com.chessdigitizer.backend.domain.port.in.LoadBookUseCase;
 import com.chessdigitizer.backend.infrastructure.adapter.in.response.ChessFileResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -67,6 +66,15 @@ public class BookController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @PatchMapping("/{id}/title")
+    public ResponseEntity<Book> updateBookTitle(
+            @PathVariable UUID id,
+            @RequestBody RenameBookRequest request) {
+        return ResponseEntity.ok(loadBookUseCase.renameBook(id, request.title()));
+    }
+
+    public record RenameBookRequest(String title) {}
 
 
 }

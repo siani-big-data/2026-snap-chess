@@ -104,6 +104,16 @@ public class ChessFileRepository implements BookRepository {
         return Optional.of(chessFile);
     }
 
+    @Override
+    public void updateTitle(UUID id, String newTitle) {
+        Path path = Paths.get(storageProperties.getChessPath(), id + ".chess");
+        if (!Files.exists(path)) return;
+        ChessFileDTO chessFileDTO = objectMapper.readValue(path, ChessFileDTO.class);
+        chessFileDTO.setTitle(newTitle);
+        objectMapper.writeValue(path,chessFileDTO);
+
+    }
+
     private ChessFile toChessFile(ChessFileDTO dto) {
         List<ChessBoard> boards = dto.getBoards().stream().map(this::toChessBoard).toList();
 
@@ -135,9 +145,7 @@ public class ChessFileRepository implements BookRepository {
         );
     }
 
-    private AnalysisNode toAnalysisNode(AnalysisNodeDTO dto) {
-        return null; //Todo todavía no implementado
-    }
+    private AnalysisNode toAnalysisNode(AnalysisNodeDTO dto) {return null; }//Todo todavía no implementado
 
     private BoundingBox toBoundingBox(BoundingBoxDTO dto) {
         return new BoundingBox(

@@ -79,4 +79,11 @@ public class BookService implements LoadBookUseCase {
     public Optional<ChessFile> getChessFile(UUID chessFileId) {
         return bookRepository.findChessFileById(chessFileId);
     }
+
+    @Override
+    public Book renameBook(UUID id, String newTitle) {
+        bookRepository.updateTitle(id, newTitle);
+        return bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Book not found: " + id));
+    }
 }
