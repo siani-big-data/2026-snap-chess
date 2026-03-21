@@ -3,7 +3,7 @@
 
     <aside class="sidebar-left">
       <div class="sidebar-header">
-        <span class="app-logo">♞</span>
+        <span class="app-logo"><font-awesome-icon icon="chess-knight" /></span>
         <span class="app-title">ChessPDF</span>
       </div>
       <BookList @bookSelected="selectedBookId = $event" />
@@ -16,7 +16,7 @@
           :key="selectedBookId"
       />
       <div v-else class="empty-state">
-        <p>♟ Selecciona un libro para empezar</p>
+        <p><font-awesome-icon icon="chess-knight" /> Selecciona un libro para empezar</p>
       </div>
     </main>
 

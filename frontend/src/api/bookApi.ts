@@ -34,3 +34,7 @@ export const importBook = async (file:File, title:string):Promise<Book> =>{
 export const deleteBook = async (bookId: string): Promise<void> => {
     await apiClient.delete(`/books/${bookId}`)
 }
+export const renameBook = async (bookId: string, newTitle: string): Promise<Book> => {
+    const { data } = await apiClient.patch(`/books/${bookId}/title`, { title: newTitle })
+    return data
+}

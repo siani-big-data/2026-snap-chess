@@ -3,7 +3,7 @@
     <div class="modal">
 
       <div class="modal-header">
-        <h3>Importar libro</h3>
+        <h3>Añadir libro</h3>
         <button class="close-btn" @click="emit('close')">✕</button>
       </div>
 
@@ -18,13 +18,28 @@
           />
         </div>
 
-        <div class="form-group">
-          <label>Archivo PDF</label>
+        <div
+            class="drop-zone"
+            :class="{ 'drop-zone--active': isDragging }"
+            @dragover.prevent="isDragging = true"
+            @dragleave.prevent="isDragging = false"
+            @drop.prevent="onDrop"
+            @click="triggerFileInput"
+        >
           <input
+              ref="fileInputRef"
               type="file"
               accept=".pdf"
+              style="display: none"
               @change="onFileChange"
           />
+          <div class="drop-zone__icon"><font-awesome-icon icon="cloud-arrow-up" /></div>
+          <p class="drop-zone__text">
+            {{ selectedFile ? selectedFile.name : 'Arrastra tu PDF aquí' }}
+          </p>
+          <p class="drop-zone__subtext" v-if="!selectedFile">
+            o haz click para seleccionar
+          </p>
         </div>
 
         <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
@@ -54,11 +69,27 @@ const title = ref('')
 const selectedFile = ref<File | null>(null)
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const isDragging = ref(false)
 
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'bookImported'): void;
 }>()
+
+const triggerFileInput = () => {
+  fileInputRef.value?.click()
+}
+const onDrop = (event: DragEvent) => {
+  isDragging.value = false
+  const file = event.dataTransfer?.files[0]
+  if (file && file.type === 'application/pdf') {
+    selectedFile.value = file
+    if (!title.value) {
+      title.value = file.name.replace('.pdf', '')
+    }
+  }
+}
 
 const onFileChange = (event: Event) => {
   const input = event.target as HTMLInputElement
@@ -190,5 +221,43 @@ const handleImport = async () => {
 .btn-import:disabled {
   background: #aaa;
   cursor: not-allowed;
+}
+.drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fafafa;
+}
+
+.drop-zone:hover {
+  border-color: #2d5a9e;
+  background: #f0f4ff;
+}
+
+.drop-zone--active {
+  border-color: #2d5a9e;
+  background: #e8f0ff;
+  transform: scale(1.01);
+}
+
+.drop-zone__icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.drop-zone__text {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+
+.drop-zone__subtext {
+  font-size: 12px;
+  color: #888;
 }
 </style>

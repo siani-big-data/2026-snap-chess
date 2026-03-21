@@ -1,8 +1,7 @@
 <template>
   <div class="book-list">
-    <p class="section-label">MI BIBLIOTECA</p>
     <button class="btn-add" @click="showModal = true">
-      + Importar libro
+      + Añadir libro
     </button>
     <ul>
       <li
@@ -12,12 +11,25 @@
           :class="{ active: selectedId === book.id }"
           class="book-item"
       >
-        <span class="book-icon">📄</span>
+        <span class="book-icon"><font-awesome-icon icon="chess-pawn" /></span>
         <div class="book-info" @click="selectBook(book.id)">
-          <span class="book-title">{{ book.title }}</span>
+          <input
+              :ref="el => { if (el) titleInputRef = el as HTMLInputElement }"
+              v-if="editingBookId === book.id"
+              v-model="editingTitle"
+              class="title-input"
+              @keydown.enter="saveRename(book.id)"
+              @keydown.esc="cancelRename"
+              @blur="saveRename(book.id)"
+              @click.stop
+          />
+          <span v-else class="book-title">{{ book.title }}</span>
           <span class="book-pages">{{ book.totalPages }} páginas</span>
         </div>
-        <button class="btn-delete" @click.stop="handleDelete(book.id)">🗑</button>
+        <div class="book-actions">
+          <button class="btn-action" @click.stop="startRename(book)" title="Renombrar"><font-awesome-icon icon="pen" /></button>
+          <button class="btn-action" @click.stop="handleDelete(book.id)" title="Eliminar"><font-awesome-icon icon="trash" /></button>
+        </div>
       </li>
     </ul>
   </div>
@@ -29,21 +41,52 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import {ref, onMounted, nextTick} from 'vue'
 import type { Book } from '../../types/chess.types.ts'
-import {deleteBook, getBooks} from '../../api/bookApi.ts'
+import {deleteBook, getBooks, renameBook} from '../../api/bookApi.ts'
 import ImportBookModal from "./ImportBookModal.vue";
 
 const books = ref<Book[]>([])
 const selectedId = ref<string | null>(null)
 const showModal = ref(false)
+const editingBookId = ref<string | null>(null)
+const editingTitle = ref('')
+let titleInputRef = ref<HTMLInputElement | null>(null)
 
 const emit = defineEmits<{
   bookSelected: [bookId: string]
 }>()
 
+
+
 const reloadBooks = async () => {
   books.value = await getBooks()
+}
+
+const startRename = async (book: Book) => {
+  editingBookId.value = book.id
+  editingTitle.value = book.title
+  await nextTick()
+  titleInputRef.value?.focus()
+}
+
+const cancelRename = () => {
+  editingBookId.value = null
+  editingTitle.value = ''
+}
+
+const saveRename = async (bookId: string) => {
+  const trimmed = editingTitle.value.trim()
+
+  const original = books.value.find(b => b.id === bookId)?.title
+  if (!trimmed || trimmed === original) {
+    cancelRename()
+    return
+  }
+
+  await renameBook(bookId, trimmed)
+  await reloadBooks()
+  cancelRename()
 }
 
 const selectBook = (id: string) => {
@@ -68,15 +111,6 @@ onMounted(async () => {
   overflow-y: auto;
   padding: 8px 0;
 }
-
-.section-label {
-  padding: 12px 16px 6px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: #666;
-}
-
 .book-item {
   display: flex;
   align-items: center;
@@ -98,7 +132,7 @@ onMounted(async () => {
 }
 
 .book-icon {
-  font-size: 18px;
+  font-size: 13px;
   flex-shrink: 0;
 }
 
@@ -144,6 +178,35 @@ onMounted(async () => {
   opacity: 0;
   transition: opacity 0.15s;
   flex-shrink: 0;
+}
+
+.book-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.book-item:hover .book-actions { opacity: 1; }
+
+.btn-action {
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.title-input {
+  background: #2d3447;
+  border: 1px solid #2d5a9e;
+  border-radius: 4px;
+  color: white;
+  font-size: 13px;
+  padding: 2px 6px;
+  width: 100%;
+  outline: none;
 }
 
 .book-item:hover .btn-delete { opacity: 1; }

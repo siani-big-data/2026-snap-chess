@@ -3,7 +3,16 @@
 
     <div class="controls">
       <button @click="prevPage" :disabled="currentPage === 1">←</button>
-      <span>Página {{ currentPage }} / {{ chessFile?.totalPages }}</span>
+      <input
+          v-model="pageInput"
+          type="number"
+          :min="1"
+          :max="chessFile?.totalPages"
+          @keydown.enter="goToPage"
+          @blur="goToPage"
+          class="page-input"
+      />
+      <span class="page-separator">/ {{ chessFile?.totalPages }}</span>
       <button @click="nextPage" :disabled="currentPage === chessFile?.totalPages">→</button>
 
       <div class="zoom-controls">
@@ -55,6 +64,7 @@ const zoomLevel = ref(1)
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 2.5
 const ZOOM_STEP = 0.15
+const pageInput = ref(1)
 
 const zoomIn  = () => { if (zoomLevel.value < MAX_ZOOM) zoomLevel.value = +(zoomLevel.value + ZOOM_STEP).toFixed(2) }
 const zoomOut = () => { if (zoomLevel.value > MIN_ZOOM) zoomLevel.value = +(zoomLevel.value - ZOOM_STEP).toFixed(2) }
@@ -75,6 +85,15 @@ const containerStyle = computed(() => ({
 const currentPageBoards = computed(() =>
     chessFile.value?.boards.filter(board => board.page === currentPage.value) ?? []
 )
+const goToPage = () => {
+  const target = Number(pageInput.value)
+  const total = chessFile.value?.totalPages ?? 1
+  if (!isNaN(target) && target >= 1 && target <= total) {
+    currentPage.value = target
+  } else {
+    pageInput.value = currentPage.value
+  }
+}
 
 const onImageLoad = () => {
   const img = pageImageRef.value
@@ -85,10 +104,18 @@ const onImageLoad = () => {
   pageHeightPt.value = img.naturalHeight / factor
 }
 
-const prevPage = () => { if (currentPage.value > 1) currentPage.value-- }
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    pageInput.value = currentPage.value
+  }
+}
+
 const nextPage = () => {
-  if (currentPage.value < (chessFile.value?.totalPages ?? 1))
+  if (currentPage.value < (chessFile.value?.totalPages ?? 1)) {
     currentPage.value++
+    pageInput.value = currentPage.value
+  }
 }
 
 
@@ -163,5 +190,30 @@ onMounted(async () => {
 
 .zoom-label:hover {
   color: #2d5a9e;
+}
+.page-input {
+  width: 52px;
+  text-align: center;
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #2c3e50;
+  background: white;
+}
+
+.page-input:focus {
+  outline: none;
+  border-color: #2d5a9e;
+}
+
+.page-input::-webkit-inner-spin-button,
+.page-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+.page-separator {
+  font-size: 13px;
+  color: #555;
 }
 </style>
