@@ -38,6 +38,7 @@
           :board="board"
           :pageWidthPt="pageWidthPt"
           :pageHeightPt="pageHeightPt"
+          @boardClicked="emit('boardSelected', board)"
 
       />
     </div>
@@ -47,13 +48,9 @@
 
 <script setup lang="ts">
 import {computed, onMounted, ref} from "vue";
-import type {ChessFile} from "../../types/chess.types.ts";
+import type {ChessBoard, ChessFile} from "../../types/chess.types.ts";
 import {getChessFile, getPageImageUrl} from "../../api/bookApi.ts";
 import BoardOverlay from "./BoardOverlay.vue";
-
-const props = defineProps<{
-  bookId: string
-}>()
 
 const chessFile = ref<ChessFile | null>(null)
 const currentPage = ref(1)
@@ -65,6 +62,16 @@ const MIN_ZOOM = 0.5
 const MAX_ZOOM = 2.5
 const ZOOM_STEP = 0.15
 const pageInput = ref(1)
+
+
+const props = defineProps<{
+  bookId: string
+}>()
+
+const emit = defineEmits<{
+  boardSelected: [board: ChessBoard]
+}>()
+
 
 const zoomIn  = () => { if (zoomLevel.value < MAX_ZOOM) zoomLevel.value = +(zoomLevel.value + ZOOM_STEP).toFixed(2) }
 const zoomOut = () => { if (zoomLevel.value > MIN_ZOOM) zoomLevel.value = +(zoomLevel.value - ZOOM_STEP).toFixed(2) }

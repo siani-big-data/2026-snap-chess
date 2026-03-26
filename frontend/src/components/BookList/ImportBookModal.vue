@@ -53,7 +53,7 @@
             @click="handleImport"
             :disabled="!title || !selectedFile || isLoading"
         >
-          {{ isLoading ? 'Importando...' : 'Importar' }}
+          {{ isLoading ? 'Añadiendo...' : 'Añadir' }}
         </button>
       </div>
 
