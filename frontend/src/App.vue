@@ -6,7 +6,7 @@
         <span class="app-logo"><font-awesome-icon icon="chess-knight" /></span>
         <span class="app-title">ChessPDF</span>
       </div>
-      <BookList @bookSelected="selectedBookId = $event" />
+      <BookList @bookSelected="onBookSelected" />
     </aside>
 
     <main class="main-content">
@@ -14,7 +14,7 @@
           v-if="selectedBookId"
           :bookId="selectedBookId"
           :key="selectedBookId"
-          @boardSelected="selectedBoard = $event"
+          @boardSelected="onSelectedBoard"
       />
       <div v-else class="empty-state">
         <p><font-awesome-icon icon="chess-knight" /> Selecciona un libro para empezar</p>
@@ -27,7 +27,7 @@
       <div class="sidebar-header">
         <span>Análisis</span>
       </div>
-
+      <ChessBoardPanel :board="selectedBoard" />
     </aside>
 
   </div>
@@ -37,6 +37,7 @@
 import { ref, computed } from 'vue'
 import BookList from './components/BookList/BookList.vue'
 import PdfViewer from './components/PdfViewer/PdfViewer.vue'
+import ChessBoardPanel from './components/ChessBoard/ChessBoardPanel.vue'
 import type { ChessBoard } from './types/chess.types.ts'
 
 const selectedBookId  = ref<string | null>(null)
@@ -49,6 +50,17 @@ const sidebarWidth = ref(300)
 const layoutStyle = computed(() => ({
   gridTemplateColumns: `260px 1fr 4px ${sidebarWidth.value}px`
 }))
+
+const onBookSelected = (bookId: string) => {
+  selectedBookId.value = bookId
+  selectedBoard.value = null
+  sidebarWidth.value = 300
+}
+
+const onSelectedBoard = (board: ChessBoard): void => {
+  selectedBoard.value = board
+  sidebarWidth.value = 500
+}
 
 const startResize = (event: MouseEvent) => {
   event.preventDefault()
