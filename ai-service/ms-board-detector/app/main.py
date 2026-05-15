@@ -6,7 +6,7 @@ from PIL import Image
 
 from app.detector import BoardDetector
 
-MODEL_PATH = "models/board_detector.pt"
+MODEL_PATH = "models/chessboard_detection_model.pt"
 
 detector: BoardDetector = None
 
