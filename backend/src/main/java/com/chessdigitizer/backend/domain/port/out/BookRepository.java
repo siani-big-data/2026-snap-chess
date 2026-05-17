@@ -15,4 +15,5 @@ public interface BookRepository {
     Optional<ChessFile> findChessFileById(UUID chessFileId);
     void updateTitle(UUID id, String newTitle);
 
+    void saveChessFile(ChessFile chessFile);
 }

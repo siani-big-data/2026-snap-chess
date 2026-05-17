@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Repository
@@ -114,6 +115,14 @@ public class ChessFileRepository implements BookRepository {
 
     }
 
+    @Override
+    public void saveChessFile(ChessFile chessFile) {
+        Path path = Paths.get(storageProperties.getChessPath(), chessFile.id() + ".chess");
+        ChessFileDTO dto = toChessFileDTO(chessFile);
+        objectMapper.writeValue(path, dto);
+        log.info("ChessFile guardado para el libro {}", chessFile.id());
+    }
+
     private ChessFile toChessFile(ChessFileDTO dto) {
         List<ChessBoard> boards = dto.getBoards().stream().map(this::toChessBoard).toList();
 
@@ -154,6 +163,42 @@ public class ChessFileRepository implements BookRepository {
                 dto.getWidth(),
                 dto.getHeight()
         );
+    }
+    private ChessFileDTO toChessFileDTO(ChessFile chessFile) {
+        ChessFileDTO dto = new ChessFileDTO();
+        dto.setId(chessFile.id());
+        dto.setTitle(chessFile.title());
+        dto.setOriginalFilename(chessFile.originalFilename());
+        dto.setTotalPages(chessFile.totalPages());
+        dto.setBoards(
+                chessFile.boards().stream()
+                        .map(this::toChessBoardDTO)
+                        .collect(Collectors.toCollection(ArrayList::new))
+        );
+        return dto;
+    }
+
+    private ChessBoardDTO toChessBoardDTO(ChessBoard board) {
+        ChessBoardDTO dto = new ChessBoardDTO();
+        dto.setId(board.id());
+        dto.setPage(board.page());
+        dto.setFen(board.fen().value());
+        dto.setBoundingBox(toBoundingBoxDTO(board.boundingBox()));
+        dto.setAnalysis(toAnalysisNodeDTO(board.analysis()));
+        return dto;
+    }
+
+    private BoundingBoxDTO toBoundingBoxDTO(BoundingBox bbox) {
+        BoundingBoxDTO dto = new BoundingBoxDTO();
+        dto.setX(bbox.x());
+        dto.setY(bbox.y());
+        dto.setWidth(bbox.width());
+        dto.setHeight(bbox.height());
+        return dto;
+    }
+
+    private AnalysisNodeDTO toAnalysisNodeDTO(AnalysisNode node) {
+        return new AnalysisNodeDTO(); // TODO Iteración 4 — el árbol aún no se persiste
     }
 }
 
