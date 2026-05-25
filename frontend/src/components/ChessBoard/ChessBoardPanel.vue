@@ -56,8 +56,15 @@ const boardSize = ref(0)
 let ro: ResizeObserver | null = null
 const freeMode = ref(false)
 
+const FEN_REGEX = /^([rnbqkpRNBQKP1-8]{1,8}\/){7}[rnbqkpRNBQKP1-8]{1,8}\s[wb]\s/
+
+const isValidFen = (fen: string): boolean => {
+  if (!FEN_REGEX.test(fen)) return false
+  return fen.includes('k') && fen.includes('K')
+}
+
 const boardConfig = computed<BoardConfig>(() => ({
-  fen: props.board?.fen ?? 'start',
+  fen: props.board?.fen && isValidFen(props.board.fen) ? props.board.fen : 'start',
   orientation: isFlipped.value ? 'black' : 'white',
   movable: {
     free: freeMode.value,

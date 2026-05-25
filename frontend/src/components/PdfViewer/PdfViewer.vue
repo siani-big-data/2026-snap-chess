@@ -23,6 +23,16 @@
         <button @click="zoomIn" :disabled="zoomLevel >= 2.5">+</button>
       </div>
     </div>
+    <div class="analyze-controls">
+      <button
+          class="btn-analyze"
+          :disabled="isAnalyzing"
+          @click="onAnalyzePage">
+        <font-awesome-icon :icon="isAnalyzing ? 'rotate' : 'chess-board'" :spin="isAnalyzing" />
+        {{ isAnalyzing ? 'Analizando...' : 'Analizar página' }}
+      </button>
+      <span v-if="analyzeError" class="analyze-error">{{ analyzeError }}</span>
+    </div>
 
     
     <div class="page-container" :style="containerStyle">
@@ -51,7 +61,10 @@ import {computed, onMounted, ref} from "vue";
 import type {ChessBoard, ChessFile} from "../../types/chess.types.ts";
 import {getChessFile, getPageImageUrl} from "../../api/bookApi.ts";
 import BoardOverlay from "./BoardOverlay.vue";
+import { analyzePage } from '../../api/bookApi.ts'
 
+const isAnalyzing = ref(false)
+const analyzeError = ref<string | null>(null)
 const chessFile = ref<ChessFile | null>(null)
 const currentPage = ref(1)
 const pageWidthPt = ref(595)
@@ -122,6 +135,17 @@ const nextPage = () => {
   if (currentPage.value < (chessFile.value?.totalPages ?? 1)) {
     currentPage.value++
     pageInput.value = currentPage.value
+  }
+}
+const onAnalyzePage = async () => {
+  isAnalyzing.value = true
+  analyzeError.value = null
+  try {
+    chessFile.value = await analyzePage(props.bookId, currentPage.value)
+  } catch (e) {
+    analyzeError.value = 'Error al analizar la página'
+  } finally {
+    isAnalyzing.value = false
   }
 }
 
@@ -222,5 +246,38 @@ onMounted(async () => {
 .page-separator {
   font-size: 13px;
   color: #555;
+}
+
+.analyze-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 1px solid #eee;
+}
+
+.btn-analyze {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: none;
+  background: #2d5a9e;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.btn-analyze:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.analyze-error {
+  font-size: 12px;
+  color: #e74c3c;
 }
 </style>

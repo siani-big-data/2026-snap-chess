@@ -38,3 +38,9 @@ export const renameBook = async (bookId: string, newTitle: string): Promise<Book
     const { data } = await apiClient.patch(`/books/${bookId}/title`, { title: newTitle })
     return data
 }
+export const analyzePage = (bookId: string, pageNumber: number): Promise<ChessFile> =>
+    fetch(`/api/books/${bookId}/pages/${pageNumber}/analyze`, { method: 'POST' })
+        .then(res => {
+            if (!res.ok) throw new Error(`Error al analizar la página ${pageNumber}`);
+            return res.json();
+        });
