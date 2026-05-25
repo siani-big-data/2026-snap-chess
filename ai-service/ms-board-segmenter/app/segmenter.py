@@ -3,10 +3,10 @@ import numpy as np
 from dataclasses import dataclass
 
 GAUSSIAN_BLUR_KERNEL = (5, 5)
-SOBEL_THRESHOLD      = 50
-HOUGH_VOTE_THRESHOLD = 80
+SOBEL_THRESHOLD      = 80
+HOUGH_VOTE_THRESHOLD = 120
 HOUGH_MIN_LINE_RATIO = 0.4
-HOUGH_MAX_LINE_GAP   = 10
+HOUGH_MAX_LINE_GAP   = 20
 CLUSTER_DIVISOR      = 16
 BORDER_SIZE          = 10
 GRID_LINES           = 9
@@ -21,8 +21,8 @@ class SquareResult:
 
 
 def segment_board(board_image: np.ndarray) -> tuple[list[SquareResult], str]:
-    bordered = _add_synthetic_border(board_image)
-    result   = _segment_with_hough(bordered)
+    board_image = _crop_white_margin(board_image)
+    result = _segment_with_hough(board_image)
 
     if result is not None:
         return result, "hough"
@@ -142,14 +142,113 @@ def _segment_with_hough(bordered: np.ndarray) -> list[SquareResult] | None:
     h_positions = sorted(_cluster_lines(h_lines, axis="y", image_size=h))
     v_positions = sorted(_cluster_lines(v_lines, axis="x", image_size=w))
 
+    h_positions = _regularize_lines(h_positions, image_size=h)
+    v_positions = _regularize_lines(v_positions, image_size=w)
+
     if len(h_positions) != GRID_LINES or len(v_positions) != GRID_LINES:
         return None
 
+    # Forzar que la primera línea sea 0 y la última sea el borde de la imagen
+    h_step = h_positions[-1] - h_positions[-2]
+    v_step = v_positions[-1] - v_positions[-2]
+    h_positions = [h_positions[0] + i * h_step for i in range(GRID_LINES)]
+    v_positions = [v_positions[0] + i * v_step for i in range(GRID_LINES)]
+
+    # Anclar al borde real de la imagen
+    h_positions[0]  = 0.0
+    h_positions[-1] = float(h)
+    v_positions[0]  = 0.0
+    v_positions[-1] = float(w)
+
+    _save_debug_image(bordered, h_positions, v_positions)
     return _crop_squares(bordered, h_positions, v_positions)
 
+
+def _force_border_lines(positions: list[float], image_size: int) -> list[float]:
+    """
+    Si hay 8 líneas en vez de 9, encuentra el gap más grande
+    y añade una línea interpolada en su punto medio.
+    """
+    if len(positions) != GRID_LINES - 1:
+        return positions
+
+    # Encuentra el gap más grande entre líneas consecutivas
+    gaps = [positions[i+1] - positions[i] for i in range(len(positions)-1)]
+    max_gap_idx = int(np.argmax(gaps))
+
+    # Interpola una línea en el centro del gap más grande
+    interpolated = (positions[max_gap_idx] + positions[max_gap_idx + 1]) / 2
+    new_positions = positions[:max_gap_idx + 1] + [interpolated] + positions[max_gap_idx + 1:]
+
+    return new_positions
+
+def _regularize_lines(positions: list[float], image_size: int) -> list[float]:
+    """
+    Genera una cuadrícula uniforme centrada en la imagen,
+    usando la mediana del paso detectado como tamaño de casilla.
+    """
+    if len(positions) < 2:
+        return positions
+
+    gaps = [positions[i+1] - positions[i] for i in range(len(positions)-1)]
+    median_gap = float(np.median(gaps))
+
+    # Centro real de la cuadrícula detectada
+    detected_center = (positions[0] + positions[-1]) / 2
+    # Centro de la cuadrícula completa de 9 líneas
+    grid_span = median_gap * (GRID_LINES - 1)
+    start = detected_center - grid_span / 2
+
+    print(f"[REG] detected_center: {detected_center:.1f}")
+    print(f"[REG] grid_span: {grid_span:.1f}")
+    print(f"[REG] start: {start:.1f}")
+    print(f"[REG] end: {start + grid_span:.1f}")
+    print(f"[REG] image_size: {image_size}")
+
+    return [start + i * median_gap for i in range(GRID_LINES)]
 
 def _segment_fallback(image: np.ndarray) -> list[SquareResult]:
     h, w = image.shape[:2]
     h_positions = [row * (h / BOARD_SIZE) for row in range(GRID_LINES)]
     v_positions = [col * (w / BOARD_SIZE) for col in range(GRID_LINES)]
+    _save_debug_image(image, h_positions, v_positions)
     return _crop_squares(image, h_positions, v_positions)
+
+def _crop_white_margin(image: np.ndarray) -> np.ndarray:
+    """
+    Elimina márgenes exteriores (blancos o negros) para quedarse
+    solo con el área jugable del tablero.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Detecta contenido que no sea blanco puro ni negro puro
+    # Las casillas del tablero están entre 30 y 200 de intensidad
+    binary = cv2.inRange(gray, 30, 200)
+
+    coords = cv2.findNonZero(binary)
+    if coords is None:
+        return image
+
+    x, y, w, h = cv2.boundingRect(coords)
+    padding = 2
+    x = max(0, x - padding)
+    y = max(0, y - padding)
+    w = min(image.shape[1] - x, w + padding * 2)
+    h = min(image.shape[0] - y, h + padding * 2)
+    return image[y:y+h, x:x+w]
+
+def _save_debug_image(
+    image: np.ndarray,
+    h_positions: list[float],
+    v_positions: list[float]
+) -> None:
+    debug = image.copy()
+    bh, bw = debug.shape[:2]
+    for y in h_positions:
+        cv2.line(debug, (0, int(y)), (bw, int(y)), (0, 0, 255), 2)
+    for x in v_positions:
+        cv2.line(debug, (int(x), 0), (int(x), bh), (0, 0, 255), 2)
+    for y in h_positions:
+        for x in v_positions:
+            cv2.circle(debug, (int(x), int(y)), 4, (255, 100, 0), -1)
+    cv2.imwrite("debug_lines.png", debug)
