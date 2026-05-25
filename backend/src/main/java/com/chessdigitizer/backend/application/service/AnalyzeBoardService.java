@@ -9,6 +9,9 @@ import com.chessdigitizer.backend.domain.port.out.VisionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -48,6 +51,7 @@ public class AnalyzeBoardService implements AnalyzeBoardUseCase {
                 classifications.add(visionService.classifyCell(cell.image()));
             }
             String fen = buildFen(classifications);
+            log.info("FEN generado para tablero {} página {}: {}", newBoards.size() + 1, pageNumber, fen);
             String boardId = "board-p%d-%d".formatted(pageNumber, newBoards.size() + 1);
             newBoards.add(new ChessBoard(
                     boardId,

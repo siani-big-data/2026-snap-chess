@@ -43,5 +43,21 @@ public class GlobalProperties {
             this.chessPath = chessPath;
         }
     }
+
+    @ConfigurationProperties(prefix = "app.vision")
+    @Component
+    public static class VisionProperties {
+        private String detectorUrl;
+        private String segmenterUrl;
+        private String classifierUrl;
+
+        // getters y setters de los tres campos
+        public String getDetectorUrl() { return detectorUrl; }
+        public void setDetectorUrl(String detectorUrl) { this.detectorUrl = detectorUrl; }
+        public String getSegmenterUrl() { return segmenterUrl; }
+        public void setSegmenterUrl(String segmenterUrl) { this.segmenterUrl = segmenterUrl; }
+        public String getClassifierUrl() { return classifierUrl; }
+        public void setClassifierUrl(String classifierUrl) { this.classifierUrl = classifierUrl; }
+    }
 }
 
