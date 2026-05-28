@@ -1,0 +1,38 @@
+import type { AnalysisNode, AddMoveRequest } from '../types/chess.types'
+
+const BASE_URL = 'http://localhost:8080/api'
+
+export async function addMove(
+    bookId: string,
+    boardId: string,
+    request: AddMoveRequest
+): Promise<AnalysisNode> {
+    const response = await fetch(
+        `${BASE_URL}/books/${bookId}/boards/${boardId}/analysis/moves`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(request)
+        }
+    )
+    if (!response.ok) throw new Error(`Error añadiendo jugada: ${response.status}`)
+    return response.json()
+}
+
+export async function updateComment(
+    bookId: string,
+    boardId: string,
+    path: string[],
+    comment: string
+): Promise<AnalysisNode> {
+    const response = await fetch(
+        `${BASE_URL}/books/${bookId}/boards/${boardId}/analysis/comment`,
+        {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, comment })
+        }
+    )
+    if (!response.ok) throw new Error(`Error actualizando comentario: ${response.status}`)
+    return response.json()
+}

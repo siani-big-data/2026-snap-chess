@@ -4,11 +4,11 @@ import App from './App.vue'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import {
-    faPen,faTrash,faChessKnight,faCloudArrowUp, faChessPawn,faRotate,faArrowRotateLeft,faChessBoard
+    faPen,faTrash,faChessKnight,faCloudArrowUp, faChessPawn,faRotate,faArrowRotateLeft,faChessBoard,faComment
 } from '@fortawesome/free-solid-svg-icons'
 
 library.add(
-    faPen,faTrash,faChessKnight,faCloudArrowUp, faChessPawn,faRotate,faArrowRotateLeft,faChessBoard
+    faPen,faTrash,faChessKnight,faCloudArrowUp, faChessPawn,faRotate,faArrowRotateLeft,faChessBoard,faComment
 )
 
 const app = createApp(App)

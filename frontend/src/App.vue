@@ -27,7 +27,7 @@
       <div class="sidebar-header">
         <span>Análisis</span>
       </div>
-      <ChessBoardPanel :board="selectedBoard" />
+      <ChessBoardPanel :board="selectedBoard" :bookId="selectedBookId" :sidebar-width="sidebarWidth"/>
     </aside>
 
   </div>
