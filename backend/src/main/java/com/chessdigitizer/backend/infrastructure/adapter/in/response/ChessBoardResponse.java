@@ -8,7 +8,7 @@ public class ChessBoardResponse {
     int page;
     BoundingBoxResponse bbox;
     String fen;
-    Object analysis;
+    AnalysisNodeResponse analysis;
 
 
 }

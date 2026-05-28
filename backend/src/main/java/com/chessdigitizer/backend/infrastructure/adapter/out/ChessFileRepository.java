@@ -123,6 +123,21 @@ public class ChessFileRepository implements BookRepository {
         log.info("ChessFile guardado para el libro {}", chessFile.id());
     }
 
+    @Override
+    public void updateBoardAnalysis(UUID bookId, String boardId, AnalysisNode analysis) {
+        Path path = Paths.get(storageProperties.getChessPath(), bookId + ".chess");
+        ChessFileDTO dto = objectMapper.readValue(path, ChessFileDTO.class);
+
+        dto.getBoards().stream()
+                .filter(b -> b.getId().equals(boardId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Board not found: " + boardId))
+                .setAnalysis(toAnalysisNodeDTO(analysis));
+
+        objectMapper.writeValue(path, dto);
+        log.info("Análisis actualizado para tablero '{}' del libro '{}'", boardId, bookId);
+    }
+
     private ChessFile toChessFile(ChessFileDTO dto) {
         List<ChessBoard> boards = dto.getBoards().stream().map(this::toChessBoard).toList();
 
@@ -154,7 +169,19 @@ public class ChessFileRepository implements BookRepository {
         );
     }
 
-    private AnalysisNode toAnalysisNode(AnalysisNodeDTO dto) {return null; }//Todo todavía no implementado
+    private AnalysisNode toAnalysisNode(AnalysisNodeDTO dto) {
+        if (dto == null) return new AnalysisNode(null, "", null);
+
+        AnalysisNode node = new AnalysisNode(dto.getMove(), dto.getComment(), dto.getEvalCp());
+
+        if (dto.getChildren() != null) {
+            dto.getChildren().stream()
+                    .map(this::toAnalysisNode)
+                    .forEach(node::addChild);
+        }
+
+        return node;
+    }
 
     private BoundingBox toBoundingBox(BoundingBoxDTO dto) {
         return new BoundingBox(
@@ -198,7 +225,21 @@ public class ChessFileRepository implements BookRepository {
     }
 
     private AnalysisNodeDTO toAnalysisNodeDTO(AnalysisNode node) {
-        return new AnalysisNodeDTO(); // TODO Iteración 4 — el árbol aún no se persiste
+        if (node == null) return null;
+
+        AnalysisNodeDTO dto = new AnalysisNodeDTO();
+        dto.setMove(node.getMove());
+        dto.setComment(node.getComment());
+        dto.setEvalCp(node.getEvalCp());
+
+        List<AnalysisNodeDTO> childrenDTOs = node.getChildren().stream()
+                .map(this::toAnalysisNodeDTO)  // recursión
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        dto.setChildren(childrenDTOs);
+        return dto;
     }
+
+
 }
 

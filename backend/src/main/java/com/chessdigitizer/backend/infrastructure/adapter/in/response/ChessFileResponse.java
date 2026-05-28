@@ -35,7 +35,7 @@ public class ChessFileResponse {
             boardRes.setPage(board.page());
             boardRes.setBbox(bboxRes);
             boardRes.setFen(board.fen().value());
-            boardRes.setAnalysis(null);
+            boardRes.setAnalysis(AnalysisNodeResponse.fromDomain(board.analysis()));
 
             response.getBoards().add(boardRes);
         }

@@ -1,5 +1,6 @@
 package com.chessdigitizer.backend.domain.port.out;
 
+import com.chessdigitizer.backend.domain.model.AnalysisNode;
 import com.chessdigitizer.backend.domain.model.Book;
 import com.chessdigitizer.backend.domain.model.ChessFile;
 
@@ -16,4 +17,6 @@ public interface BookRepository {
     void updateTitle(UUID id, String newTitle);
 
     void saveChessFile(ChessFile chessFile);
+
+    void updateBoardAnalysis(UUID bookId, String boardId, AnalysisNode analysis);
 }

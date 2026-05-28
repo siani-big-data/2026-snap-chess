@@ -3,11 +3,12 @@ package com.chessdigitizer.backend.domain.model;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 public final class AnalysisNode {
 
     private final String move;
-    private final String comment;
+    private String comment;
     private final Integer evalCp;
     private final List<AnalysisNode> children;
 
@@ -29,4 +30,30 @@ public final class AnalysisNode {
     public List<AnalysisNode> getChildren() {
         return Collections.unmodifiableList(children);
     }
+
+    public Optional<AnalysisNode> findChild(String move) {
+        return children.stream()
+                .filter(child -> child.move.equals(move))
+                .findFirst();
+    }
+
+    public AnalysisNode addOrGetChild(String move) {
+        return findChild(move).orElseGet(() -> {
+            AnalysisNode newChild = new AnalysisNode(move, "", null);
+            children.add(newChild);
+            return newChild;
+        });
+    }
+
+    public List<AnalysisNode> getMainLine() {
+        List<AnalysisNode> line = new ArrayList<>();
+        AnalysisNode current = this;
+        while (!current.children.isEmpty()) {
+            current = current.children.get(0);
+            line.add(current);
+        }
+        return Collections.unmodifiableList(line);
+    }
+
+    public void setComment(String comment) { this.comment = comment; }
 }
