@@ -16,22 +16,39 @@
       </div>
 
       <div class="controls">
-        <button class="btn" @click="flipBoard"><font-awesome-icon icon="rotate" /> Girar</button>
-        <button class="btn" @click="resetBoard"><font-awesome-icon icon="arrow-rotate-left" /> Reiniciar</button>
-        <button class="btn" :class="{ 'btn--active': freeMode }" @click="freeMode = !freeMode; boardKey++">
-          <font-awesome-icon icon="chess-board" />{{ freeMode ? 'Modo libre' : 'Con reglas' }}
+        <button class="btn" @click="flipBoard" title="Girar tablero">
+          <font-awesome-icon icon="rotate" />
+        </button>
+        <button class="btn" @click="resetBoard" title="Reiniciar">
+          <font-awesome-icon icon="arrow-rotate-left" />
+        </button>
+        <button class="btn" :class="{ 'btn--active': freeMode }"
+                @click="freeMode = !freeMode; boardKey++" title="Modo libre / Con reglas">
+          <font-awesome-icon icon="chess-board" />
+        </button>
+        <button
+            class="btn"
+            title="Añadir comentario"
+            @click="popupEditMode = true; showpopup = true">
+          <font-awesome-icon icon="comment" />
         </button>
       </div>
 
-      <div class="move-history" v-if="moveHistory.length > 0">
-        <div class="move-history-title">Movimientos</div>
-        <div class="move-list">
-          <span v-for="(move, index) in moveHistory" :key="index" class="move-item">
-            <span v-if="index % 2 === 0" class="move-number">{{ Math.floor(index / 2) + 1 }}.</span>
-            {{ move }}
-          </span>
-        </div>
-      </div>
+      <CommentPopUp
+          v-if="showpopup"
+          :comment="currentComment"
+          :anchor-right="props.sidebarWidth"
+          :is-edit-mode="popupEditMode"
+          @close="showpopup = false"
+          @save="onSaveComment"
+      />
+
+      <AnalysisPanel
+          :tree="analysisTree"
+          :current-path="currentPath"
+          :initial-fen="props.board?.fen"
+          @navigate="navigateTo"
+      />
 
     </template>
   </div>
@@ -43,9 +60,21 @@ import { TheChessboard } from 'vue3-chessboard'
 import 'vue3-chessboard/style.css'
 import type { BoardConfig } from 'vue3-chessboard'
 import type { ChessBoard } from '../../types/chess.types.ts'
+import { addMove } from '../../api/analysisApi'
+import type { AnalysisNode } from '../../types/chess.types'
+import { Chess } from 'chess.js'
+import AnalysisPanel from './AnalysisPanel.vue'
+import CommentPopUp from "./CommentPopUp.vue";
+import { updateComment } from '../../api/analysisApi'
+
+const showpopup = ref(false)
+const popupEditMode = ref(false)
+
 
 const props = defineProps<{
   board: ChessBoard | null
+  bookId: string | null
+  sidebarWidth: number
 }>()
 
 const isFlipped = ref(false)
@@ -55,6 +84,9 @@ const boardWrapperRef = ref<HTMLElement | null>(null)
 const boardSize = ref(0)
 let ro: ResizeObserver | null = null
 const freeMode = ref(false)
+const analysisTree = ref<AnalysisNode | null>(props.board?.analysis ?? null)
+const currentPath = ref<string[]>([])
+const navigatedFen = ref<string | null>(null)
 
 const FEN_REGEX = /^([rnbqkpRNBQKP1-8]{1,8}\/){7}[rnbqkpRNBQKP1-8]{1,8}\s[wb]\s/
 
@@ -64,7 +96,8 @@ const isValidFen = (fen: string): boolean => {
 }
 
 const boardConfig = computed<BoardConfig>(() => ({
-  fen: props.board?.fen && isValidFen(props.board.fen) ? props.board.fen : 'start',
+  fen: navigatedFen.value
+      ?? (props.board?.fen && isValidFen(props.board.fen) ? props.board.fen : 'start'),
   orientation: isFlipped.value ? 'black' : 'white',
   movable: {
     free: freeMode.value,
@@ -73,10 +106,82 @@ const boardConfig = computed<BoardConfig>(() => ({
   }
 }))
 
-const onMove    = (move: any) => { if (move?.san) moveHistory.value.push(move.san) }
+const currentComment = computed((): string => {
+  if (!analysisTree.value || currentPath.value.length === 0) return ''
+  let node = analysisTree.value
+  for (const move of currentPath.value) {
+    const child = node.children?.find(c => c.move === move)
+    if (!child) return ''
+    node = child
+  }
+  return node.comment ?? ''
+})
+
+const onSaveComment = async (text: string) => {
+  if (!props.bookId || !props.board?.id) return
+  try {
+    analysisTree.value = await updateComment(
+        props.bookId, props.board.id, currentPath.value, text)
+  } catch (e) {
+    console.error('Error guardando comentario:', e)
+  }
+  showpopup.value = false
+}
+
+const navigateTo = (path: string[]) => {
+  currentPath.value = path
+  moveHistory.value = [...path]
+
+  const baseFen = props.board?.fen ?? 'start'
+  const chess = new Chess(baseFen === 'start' ? undefined : baseFen)
+
+  for (const san of path) {
+    chess.move(san)
+  }
+
+  navigatedFen.value = chess.fen()
+  boardKey.value++
+}
+
+const onMove = async (move: any) => {
+  if (!move?.san || !props.bookId || !props.board?.id) return
+
+  moveHistory.value.push(move.san)
+  currentPath.value = [...moveHistory.value]
+
+  try {
+    const path = moveHistory.value.slice(0, -1)
+    analysisTree.value = await addMove(props.bookId, props.board.id, {
+      path,
+      move: move.san
+    })
+  } catch (e) {
+    console.error('Error guardando jugada en el análisis:', e)
+  }
+}
 const flipBoard  = () => { isFlipped.value = !isFlipped.value; boardKey.value++ }
-const resetBoard = () => { moveHistory.value = []; boardKey.value++ }
-watch(() => props.board, () => { moveHistory.value = []; boardKey.value++ })
+const resetBoard = () => {
+  moveHistory.value = []
+  currentPath.value = []
+  navigatedFen.value = null
+  boardKey.value++
+}
+watch(() => props.board, () => {
+  moveHistory.value = []
+  analysisTree.value = props.board?.analysis ?? null
+  currentPath.value = []
+  navigatedFen.value = null
+  showpopup.value = false
+  boardKey.value++
+})
+watch(currentPath, () => {
+  if (currentComment.value) {
+    popupEditMode.value = false
+    showpopup.value = true
+  } else {
+    showpopup.value = false
+  }
+})
 
 
 onMounted(() => {
@@ -101,15 +206,15 @@ onUnmounted(() => ro?.disconnect())
   height: 100%;
   padding: 12px;
   gap: 10px;
-  overflow-y: auto;
+  overflow: hidden;       /* antes: overflow-y: auto — el panel ya no hace scroll */
   box-sizing: border-box;
 }
-
 
 .board-wrapper {
   width: 100%;
   aspect-ratio: 1 / 1;
   padding: 12px;
+  flex-shrink: 0;         /* evita que el tablero se comprima cuando el árbol crece */
 }
 
 .board-wrapper :deep(> *) {
@@ -130,6 +235,7 @@ onUnmounted(() => ro?.disconnect())
 .controls {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;         /* los botones tampoco se comprimen */
 }
 
 .btn {
@@ -145,35 +251,6 @@ onUnmounted(() => ro?.disconnect())
 }
 
 .btn:hover { background: #3d4560; }
-
-.move-history {
-  background: #12161f;
-  border-radius: 6px;
-  padding: 10px;
-  flex: 1;
-  overflow-y: auto;
-  min-height: 80px;
-}
-
-.move-history-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: #6b7a99;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 8px;
-}
-
-.move-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  font-size: 13px;
-  color: #c8d0e7;
-  font-family: 'Courier New', monospace;
-}
-
-.move-number { color: #6b7a99; margin-right: 2px; }
 
 .empty-state {
   display: flex;
