@@ -19,4 +19,6 @@ public interface BookRepository {
     void saveChessFile(ChessFile chessFile);
 
     void updateBoardAnalysis(UUID bookId, String boardId, AnalysisNode analysis);
+
+    void updateBoardEval(UUID bookId, String boardId, int evalCp);
 }
