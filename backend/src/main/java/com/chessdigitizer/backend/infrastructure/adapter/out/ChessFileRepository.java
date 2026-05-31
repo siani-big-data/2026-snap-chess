@@ -138,6 +138,26 @@ public class ChessFileRepository implements BookRepository {
         log.info("Análisis actualizado para tablero '{}' del libro '{}'", boardId, bookId);
     }
 
+    @Override
+    public void updateBoardEval(UUID bookId, String boardId, int evalCp) {
+        Path path = Paths.get(storageProperties.getChessPath(), bookId + ".chess");
+        ChessFileDTO dto = objectMapper.readValue(path, ChessFileDTO.class);
+
+        ChessBoardDTO board = dto.getBoards().stream()
+                .filter(b -> b.getId().equals(boardId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Board not found: " + boardId));
+
+        if (board.getAnalysis() == null) {
+            board.setAnalysis(new AnalysisNodeDTO());
+        }
+        board.getAnalysis().setEvalCp(evalCp);
+
+        objectMapper.writeValue(path, dto);
+        log.info("EvalCp '{}' guardado para tablero '{}' del libro '{}'", evalCp, boardId, bookId);
+
+    }
+
     private ChessFile toChessFile(ChessFileDTO dto) {
         List<ChessBoard> boards = dto.getBoards().stream().map(this::toChessBoard).toList();
 

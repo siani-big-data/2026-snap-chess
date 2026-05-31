@@ -59,5 +59,19 @@ public class GlobalProperties {
         public String getClassifierUrl() { return classifierUrl; }
         public void setClassifierUrl(String classifierUrl) { this.classifierUrl = classifierUrl; }
     }
+
+    @ConfigurationProperties(prefix = "app.engine")
+    @Component
+    public static class EngineProperties {
+        private String stockfishPath;
+
+        public String getStockfishPath() {
+            return stockfishPath;
+        }
+
+        public void setStockfishPath(String stockfishPath) {
+            this.stockfishPath = stockfishPath;
+        }
+    }
 }
 
