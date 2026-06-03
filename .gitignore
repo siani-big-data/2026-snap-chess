@@ -10,6 +10,9 @@ backend/.mvn/
 # ── Spring Boot ───────────────────────────────
 backend/HELP.md
 
+# Chess engine binaries
+backend/engines/
+
 # ── Node / Frontend ───────────────────────────
 frontend/node_modules/
 frontend/dist/

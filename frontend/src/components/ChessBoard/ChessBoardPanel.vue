@@ -7,12 +7,37 @@
 
     <template v-else>
 
-      <div class="board-wrapper" ref="boardWrapperRef">
-        <TheChessboard
-            :board-config="boardConfig"
-            :key="boardKey"
-            @move="onMove"
-        />
+      <div class="board-area">
+        <div class="eval-bar" v-if="evalCp !== null || isAnalyzing">
+          <div class="eval-bar__white" :style="{ height: evalBarWhiteHeight }"/>
+          <div class="eval-bar__black" :style="{ height: evalBarBlackHeight }"/>
+        </div>
+
+        <div class="board-wrapper" ref="boardWrapperRef">
+          <TheChessboard
+              :board-config="boardConfig"
+              :key="boardKey"
+              @move="onMove"
+              @board-created="onBoardCreated"
+          />
+        </div>
+      </div>
+
+
+      <div class="eval-info" v-if="evalCp !== null || isAnalyzing">
+        <template v-if="isAnalyzing">
+          <span class="eval-score">
+            <font-awesome-icon icon="spinner" spin /> Analizando...
+          </span>
+        </template>
+        <template v-else>
+          <span class="eval-score" :class="evalCp! >= 0 ? 'eval-score--white' : 'eval-score--black'">
+            {{ formattedEval }}
+          </span>
+          <span v-if="bestMove && showBestMove" class="eval-bestmove">
+            Mejor: {{ bestMove }}
+          </span>
+        </template>
       </div>
 
       <div class="controls">
@@ -31,6 +56,13 @@
             title="Añadir comentario"
             @click="popupEditMode = true; showpopup = true">
           <font-awesome-icon icon="comment" />
+        </button>
+        <button
+            class="btn"
+            :class="{ 'btn--active': showBestMove }"
+            title="Mostrar/ocultar mejor jugada"
+            @click="showBestMove = !showBestMove">
+          <font-awesome-icon icon="eye" />
         </button>
       </div>
 
@@ -55,12 +87,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { TheChessboard } from 'vue3-chessboard'
+import {ref, computed, watch, onMounted, onUnmounted, nextTick} from 'vue'
+import {BoardApi, TheChessboard} from 'vue3-chessboard'
 import 'vue3-chessboard/style.css'
 import type { BoardConfig } from 'vue3-chessboard'
 import type { ChessBoard } from '../../types/chess.types.ts'
-import { addMove } from '../../api/analysisApi'
+import {addMove, analyzeFen, analyzePosition} from '../../api/analysisApi'
 import type { AnalysisNode } from '../../types/chess.types'
 import { Chess } from 'chess.js'
 import AnalysisPanel from './AnalysisPanel.vue'
@@ -87,6 +119,13 @@ const freeMode = ref(false)
 const analysisTree = ref<AnalysisNode | null>(props.board?.analysis ?? null)
 const currentPath = ref<string[]>([])
 const navigatedFen = ref<string | null>(null)
+const evalCp      = ref<number | null>(null)
+const bestMove    = ref<string | null>(null)
+const isAnalyzing = ref(false)
+const showBestMove = ref(false)
+let analysisAbortController: AbortController | null = null
+let boardAPI: BoardApi | null = null
+let moveAnalysisController: AbortController | null = null
 
 const FEN_REGEX = /^([rnbqkpRNBQKP1-8]{1,8}\/){7}[rnbqkpRNBQKP1-8]{1,8}\s[wb]\s/
 
@@ -94,7 +133,26 @@ const isValidFen = (fen: string): boolean => {
   if (!FEN_REGEX.test(fen)) return false
   return fen.includes('k') && fen.includes('K')
 }
+const onBoardCreated = (api: BoardApi) => {
+  boardAPI = api
+  updateArrow()
+}
+const updateArrow = () => {
+  if (!boardAPI || !bestMove.value) return
+  if (showBestMove.value) {
 
+    const orig = bestMove.value.slice(0, 2) as any
+    const dest = bestMove.value.slice(2, 4) as any
+    boardAPI.setConfig({
+      drawable: { autoShapes: [{ orig, dest, brush: 'green' }] }
+    })
+  } else {
+    boardAPI.setConfig({ drawable: { autoShapes: [] } })
+  }
+}
+
+
+// COMPUTED
 const boardConfig = computed<BoardConfig>(() => ({
   fen: navigatedFen.value
       ?? (props.board?.fen && isValidFen(props.board.fen) ? props.board.fen : 'start'),
@@ -105,7 +163,6 @@ const boardConfig = computed<BoardConfig>(() => ({
     showDests: true
   }
 }))
-
 const currentComment = computed((): string => {
   if (!analysisTree.value || currentPath.value.length === 0) return ''
   let node = analysisTree.value
@@ -116,6 +173,62 @@ const currentComment = computed((): string => {
   }
   return node.comment ?? ''
 })
+
+const evalBarWhiteHeight = computed(() => {
+  if (evalCp.value === null) return '50%'
+  if (evalCp.value >= 30000) return '100%'
+  if (evalCp.value <= -30000) return '0%'
+  const clamped = Math.max(-1000, Math.min(1000, evalCp.value))
+  const pct = 50 + (clamped / 1000) * 50
+  return `${pct}%`
+})
+
+const evalBarBlackHeight = computed(() => {
+  return `${100 - parseFloat(evalBarWhiteHeight.value)}%`
+})
+
+const formattedEval = computed(() => {
+  if (evalCp.value === null) return ''
+  if (evalCp.value >= 30000) return '#'   // mate para blancas
+  if (evalCp.value <= -30000) return '#'  // mate para negras
+  const pawns = evalCp.value / 100
+  return pawns >= 0 ? `+${pawns.toFixed(2)}` : pawns.toFixed(2)
+})
+
+const runEngineAnalysis = async () => {
+  if (!props.bookId || !props.board?.id) return
+
+  // Cancelar análisis anterior si existe
+  if (analysisAbortController) {
+    analysisAbortController.abort()
+  }
+  analysisAbortController = new AbortController()
+
+  const cached = props.board?.analysis?.evalCp ?? null
+  if (cached !== null) {
+    evalCp.value = cached
+  } else {
+    isAnalyzing.value = true
+  }
+
+  try {
+    const result = await analyzePosition(
+        props.bookId,
+        props.board.id,
+        1000,
+        analysisAbortController.signal
+    )
+    evalCp.value   = result.evalCp
+    bestMove.value = result.bestMove
+  } catch (e: any) {
+    if (e.name === 'AbortError') return  // cancelado intencionalmente, no es error
+    console.error('Error analizando posición:', e)
+  } finally {
+    isAnalyzing.value = false
+  }
+}
+
+//FUNCIONES
 
 const onSaveComment = async (text: string) => {
   if (!props.bookId || !props.board?.id) return
@@ -132,15 +245,66 @@ const navigateTo = (path: string[]) => {
   currentPath.value = path
   moveHistory.value = [...path]
 
+  bestMove.value = null
+  evalCp.value   = null
+
   const baseFen = props.board?.fen ?? 'start'
   const chess = new Chess(baseFen === 'start' ? undefined : baseFen)
-
-  for (const san of path) {
-    chess.move(san)
-  }
+  for (const san of path) chess.move(san)
 
   navigatedFen.value = chess.fen()
   boardKey.value++
+
+  const isGameOver = chess.isGameOver()
+
+  if (isGameOver) {
+    evalCp.value   = chess.isCheckmate()
+        ? (chess.turn() === 'w' ? -30000 : 30000)
+        : 0
+    bestMove.value = null
+    nextTick(() => updateArrow())
+    return
+  }
+
+  // Leer evalCp cacheado del nodo del árbol si existe
+  const cachedEval = getNodeEvalCp(path)
+  if (cachedEval !== null) {
+    evalCp.value = cachedEval
+    // Aun así lanzar análisis para obtener bestMove
+  }
+
+  if (moveAnalysisController) moveAnalysisController.abort()
+  moveAnalysisController = new AbortController()
+  const signal = moveAnalysisController.signal
+
+  if (cachedEval === null) isAnalyzing.value = true
+
+  analyzeFen(chess.fen(), 1000, signal)
+      .then(result => {
+        evalCp.value   = result.evalCp
+        bestMove.value = result.bestMove
+        nextTick(() => updateArrow())
+      })
+      .catch(e => {
+        if (e.name === 'AbortError') return
+        console.error('Error analizando posición navegada:', e)
+      })
+      .finally(() => {
+        isAnalyzing.value = false
+      })
+}
+
+const getNodeEvalCp = (path: string[]): number | null => {
+  if (!analysisTree.value) return null
+  if (path.length === 0) return analysisTree.value.evalCp ?? null
+
+  let node = analysisTree.value
+  for (const move of path) {
+    const child = node.children?.find(c => c.move === move)
+    if (!child) return null
+    node = child
+  }
+  return node.evalCp ?? null
 }
 
 const onMove = async (move: any) => {
@@ -149,30 +313,72 @@ const onMove = async (move: any) => {
   moveHistory.value.push(move.san)
   currentPath.value = [...moveHistory.value]
 
+  const baseFen = props.board?.fen ?? 'start'
+  const chess = new Chess(baseFen === 'start' ? undefined : baseFen)
+  for (const san of moveHistory.value) chess.move(san)
+  const currentFen = chess.fen()
+  const isGameOver = chess.isGameOver()
+
+  if (moveAnalysisController) moveAnalysisController.abort()
+  moveAnalysisController = new AbortController()
+  const signal = moveAnalysisController.signal
+
+  // Mostrar spinner mientras analiza
+  if (!isGameOver) isAnalyzing.value = true
+
   try {
-    const path = moveHistory.value.slice(0, -1)
-    analysisTree.value = await addMove(props.bookId, props.board.id, {
-      path,
-      move: move.san
-    })
-  } catch (e) {
-    console.error('Error guardando jugada en el análisis:', e)
+    const promises: Promise<any>[] = [
+      addMove(props.bookId, props.board.id, {
+        path: moveHistory.value.slice(0, -1),
+        move: move.san
+      })
+    ]
+
+    if (!isGameOver) promises.push(analyzeFen(currentFen, 1000, signal))
+
+    const results = await Promise.all(promises)
+    analysisTree.value = results[0]
+
+    if (!isGameOver && results[1]) {
+      evalCp.value   = results[1].evalCp
+      bestMove.value = results[1].bestMove
+    } else if (isGameOver) {
+      evalCp.value   = chess.isCheckmate()
+          ? (chess.turn() === 'w' ? -30000 : 30000)
+          : 0
+      bestMove.value = null
+    }
+  } catch (e: any) {
+    if (e.name === 'AbortError') return
+    console.error('Error en onMove:', e)
+  } finally {
+    isAnalyzing.value = false  // ← siempre limpiar
   }
 }
 const flipBoard  = () => { isFlipped.value = !isFlipped.value; boardKey.value++ }
 const resetBoard = () => {
-  moveHistory.value = []
-  currentPath.value = []
+  moveHistory.value  = []
+  currentPath.value  = []
   navigatedFen.value = null
+  evalCp.value       = null
+  bestMove.value     = null
   boardKey.value++
+  if (props.board) runEngineAnalysis()
 }
 watch(() => props.board, () => {
-  moveHistory.value = []
+  evalCp.value       = null
+  bestMove.value     = null
+  moveHistory.value  = []
   analysisTree.value = props.board?.analysis ?? null
-  currentPath.value = []
+  currentPath.value  = []
+  showBestMove.value = false
   navigatedFen.value = null
-  showpopup.value = false
+  showpopup.value    = false
   boardKey.value++
+
+  if (props.board) {
+    runEngineAnalysis()  // única llamada — maneja caché internamente
+  }
 })
 watch(currentPath, () => {
   if (currentComment.value) {
@@ -183,6 +389,9 @@ watch(currentPath, () => {
   }
 })
 
+watch([bestMove, showBestMove], () => {
+  nextTick(() => updateArrow())
+})
 
 onMounted(() => {
   if (!boardWrapperRef.value) return
@@ -195,7 +404,11 @@ onMounted(() => {
   ro.observe(boardWrapperRef.value)
 })
 
-onUnmounted(() => ro?.disconnect())
+onUnmounted(() => {
+  ro?.disconnect()
+  analysisAbortController?.abort()
+  moveAnalysisController?.abort()
+})
 </script>
 
 <style scoped>
@@ -206,7 +419,7 @@ onUnmounted(() => ro?.disconnect())
   height: 100%;
   padding: 12px;
   gap: 10px;
-  overflow: hidden;       /* antes: overflow-y: auto — el panel ya no hace scroll */
+  overflow: hidden;
   box-sizing: border-box;
 }
 
@@ -214,7 +427,7 @@ onUnmounted(() => ro?.disconnect())
   width: 100%;
   aspect-ratio: 1 / 1;
   padding: 12px;
-  flex-shrink: 0;         /* evita que el tablero se comprima cuando el árbol crece */
+  flex-shrink: 0;
 }
 
 .board-wrapper :deep(> *) {
@@ -235,7 +448,7 @@ onUnmounted(() => ro?.disconnect())
 .controls {
   display: flex;
   gap: 8px;
-  flex-shrink: 0;         /* los botones tampoco se comprimen */
+  flex-shrink: 0;
 }
 
 .btn {
@@ -267,5 +480,66 @@ onUnmounted(() => ro?.disconnect())
   background: #2d5a9e;
   border-color: #4a7ac8;
   color: white;
+}
+
+.eval-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.eval-bar {
+  width: 12px;
+  align-self: stretch;    /* ← toma la altura del board-wrapper */
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column-reverse;
+  border: 1px solid #3d4560;
+  flex-shrink: 0;
+}
+
+.eval-bar__white {
+  background: #f0d9b5;
+  transition: height 0.4s ease;
+}
+
+.eval-bar__black {
+  background: #2d3447;
+  transition: height 0.4s ease;
+}
+
+.eval-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 0 4px;
+  min-height: 24px;
+}
+
+.eval-score {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e0e0e0;
+}
+
+.eval-score--white { color: #f0d9b5; }
+.eval-score--black { color: #6b7a99; }
+
+.eval-bestmove {
+  font-size: 11px;
+  color: #6b7a99;
+}
+
+.board-area {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-right: 8px;
 }
 </style>
