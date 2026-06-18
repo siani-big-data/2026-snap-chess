@@ -9,6 +9,12 @@ public record ChessFile(
         String title,
         String originalFilename,
         int totalPages,
+        BookCategory category,
         List<ChessBoard> boards
-) {
+        ) {
+    public ChessFile {
+        if (category == null) {
+            category = BookCategory.GENERAL;
+        }
+    }
 }

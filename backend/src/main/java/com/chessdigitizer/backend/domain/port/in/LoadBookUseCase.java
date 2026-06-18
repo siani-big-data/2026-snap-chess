@@ -1,6 +1,7 @@
 package com.chessdigitizer.backend.domain.port.in;
 
 import com.chessdigitizer.backend.domain.model.Book;
+import com.chessdigitizer.backend.domain.model.BookCategory;
 import com.chessdigitizer.backend.domain.model.ChessFile;
 
 import java.util.List;
@@ -14,4 +15,5 @@ public interface LoadBookUseCase {
     void deleteBook(UUID bookId);
     Optional<ChessFile> getChessFile(UUID chessFileId);
     Book renameBook(UUID id, String newTitle);
+    Book updateCategory(UUID id, BookCategory category);
 }

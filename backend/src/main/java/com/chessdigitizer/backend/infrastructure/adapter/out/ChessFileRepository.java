@@ -116,6 +116,16 @@ public class ChessFileRepository implements BookRepository {
     }
 
     @Override
+    public void updateCategory(UUID id, BookCategory category) {
+        Path path = Paths.get(storageProperties.getChessPath(), id + ".chess");
+        if (!Files.exists(path)) return;
+        ChessFileDTO chessFileDTO = objectMapper.readValue(path, ChessFileDTO.class);
+        chessFileDTO.setCategory(category);
+        objectMapper.writeValue(path, chessFileDTO);
+        log.info("Categoría actualizada a '{}' para el libro {}", category, id);
+    }
+
+    @Override
     public void saveChessFile(ChessFile chessFile) {
         Path path = Paths.get(storageProperties.getChessPath(), chessFile.id() + ".chess");
         ChessFileDTO dto = toChessFileDTO(chessFile);
@@ -166,6 +176,7 @@ public class ChessFileRepository implements BookRepository {
                 dto.getTitle(),
                 dto.getOriginalFilename(),
                 dto.getTotalPages(),
+                dto.getCategory(),
                 boards
         );
     }
@@ -217,6 +228,7 @@ public class ChessFileRepository implements BookRepository {
         dto.setTitle(chessFile.title());
         dto.setOriginalFilename(chessFile.originalFilename());
         dto.setTotalPages(chessFile.totalPages());
+        dto.setCategory(chessFile.category());
         dto.setBoards(
                 chessFile.boards().stream()
                         .map(this::toChessBoardDTO)

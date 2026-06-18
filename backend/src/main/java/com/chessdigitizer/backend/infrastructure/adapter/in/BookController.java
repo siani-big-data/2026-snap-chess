@@ -2,6 +2,7 @@ package com.chessdigitizer.backend.infrastructure.adapter.in;
 
 
 import com.chessdigitizer.backend.domain.model.Book;
+import com.chessdigitizer.backend.domain.model.BookCategory;
 import com.chessdigitizer.backend.domain.port.in.LoadBookUseCase;
 import com.chessdigitizer.backend.infrastructure.adapter.in.response.ChessFileResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -76,5 +77,13 @@ public class BookController {
 
     public record RenameBookRequest(String title) {}
 
+    @PatchMapping("/{id}/category")
+    public ResponseEntity<Book> updateBookCategory(
+            @PathVariable UUID id,
+            @RequestBody UpdateCategoryRequest request) {
+        return ResponseEntity.ok(loadBookUseCase.updateCategory(id, request.category()));
+    }
+
+    public record UpdateCategoryRequest(BookCategory category) {}
 
 }

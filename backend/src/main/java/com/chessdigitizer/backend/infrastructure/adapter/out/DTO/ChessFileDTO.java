@@ -1,6 +1,7 @@
 package com.chessdigitizer.backend.infrastructure.adapter.out.DTO;
 
 import com.chessdigitizer.backend.domain.model.Book;
+import com.chessdigitizer.backend.domain.model.BookCategory;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
@@ -16,6 +17,7 @@ public class ChessFileDTO {
     private String title;
     private String originalFilename;
     private int totalPages;
+    private BookCategory category;
     private List<ChessBoardDTO> boards = new ArrayList<>();
 
     public void updateFromDomain(Book book) {
@@ -23,9 +25,10 @@ public class ChessFileDTO {
         this.title = book.title();
         this.originalFilename = book.originalFilename();
         this.totalPages = book.totalPages();
+        this.category = book.category();
     }
 
     public Book toBook() {
-        return new Book(id, title, originalFilename, totalPages);
+        return new Book(id, title, originalFilename, totalPages, category);
     }
 }

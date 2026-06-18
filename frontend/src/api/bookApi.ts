@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type {Book, ChessFile} from "../types/chess.types.ts";
+import type {Book, BookCategory, ChessFile} from "../types/chess.types.ts";
 
 const apiClient = axios.create({
     baseURL: '/api',
@@ -38,6 +38,12 @@ export const renameBook = async (bookId: string, newTitle: string): Promise<Book
     const { data } = await apiClient.patch(`/books/${bookId}/title`, { title: newTitle })
     return data
 }
+
+export const updateBookCategory = async (bookId: string, category: BookCategory): Promise<Book> => {
+    const { data } = await apiClient.patch(`/books/${bookId}/category`, { category })
+    return data
+}
+
 export const analyzePage = (bookId: string, pageNumber: number): Promise<ChessFile> =>
     fetch(`/api/books/${bookId}/pages/${pageNumber}/analyze`, { method: 'POST' })
         .then(res => {

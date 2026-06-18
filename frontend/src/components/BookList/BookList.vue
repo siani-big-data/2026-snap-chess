@@ -3,9 +3,19 @@
     <button class="btn-add" @click="showModal = true">
       + Añadir libro
     </button>
+
+    <div class="category-filter">
+      <select v-model="categoryFilter">
+        <option value="ALL">Todas las categorías</option>
+        <option v-for="(label, value) in CATEGORY_LABELS" :key="value" :value="value">
+          {{ label }}
+        </option>
+      </select>
+    </div>
+
     <ul>
       <li
-          v-for="book in books"
+          v-for="book in filteredBooks"
           :key="book.id"
           @click="selectBook(book.id)"
           :class="{ active: selectedId === book.id }"
@@ -13,18 +23,45 @@
       >
         <span class="book-icon"><font-awesome-icon icon="chess-pawn" /></span>
         <div class="book-info" @click="selectBook(book.id)">
-          <input
-              :ref="el => { if (el) titleInputRef = el as HTMLInputElement }"
+          <div
               v-if="editingBookId === book.id"
-              v-model="editingTitle"
-              class="title-input"
-              @keydown.enter="saveRename(book.id)"
-              @keydown.esc="cancelRename"
-              @blur="saveRename(book.id)"
-              @click.stop
-          />
-          <span v-else class="book-title">{{ book.title }}</span>
-          <span class="book-pages">{{ book.totalPages }} páginas</span>
+              class="book-edit-block"
+              :ref="bindEditRowRef"
+              @focusout="handleEditFocusOut(book.id, $event)"
+          >
+            <div class="book-title-row">
+              <input
+                  :ref="bindTitleInputRef"
+                  v-model="editingTitle"
+                  class="title-input"
+                  @keydown.enter="saveRename(book.id)"
+                  @keydown.esc="cancelRename"
+                  @click.stop
+              />
+            </div>
+            <div class="book-meta-row">
+              <span class="book-pages">{{ book.totalPages }} páginas</span>
+              <select
+                  v-model="editingCategory"
+                  class="category-edit-select"
+                  @click.stop
+                  @mousedown.stop
+              >
+                <option v-for="(label, value) in CATEGORY_LABELS" :key="value" :value="value">
+                  {{ label }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <template v-else>
+            <div class="book-title-row">
+              <span class="book-title">{{ book.title }}</span>
+            </div>
+            <div class="book-meta-row">
+              <span class="book-pages">{{ book.totalPages }} páginas</span>
+              <span class="book-category">{{ CATEGORY_LABELS[book.category] }}</span>
+            </div>
+          </template>
         </div>
         <div class="book-actions">
           <button class="btn-action" @click.stop="startRename(book)" title="Renombrar"><font-awesome-icon icon="pen" /></button>
@@ -41,9 +78,10 @@
 </template>
 
 <script setup lang="ts">
-import {ref, onMounted, nextTick} from 'vue'
-import type { Book } from '../../types/chess.types.ts'
-import {deleteBook, getBooks, renameBook} from '../../api/bookApi.ts'
+import {ref, onMounted, nextTick, computed} from 'vue'
+import type { Book, BookCategory } from '../../types/chess.types.ts'
+import { CATEGORY_LABELS } from '../../types/chess.types.ts'
+import { deleteBook, getBooks, renameBook, updateBookCategory } from '../../api/bookApi.ts'
 import ImportBookModal from "./ImportBookModal.vue";
 
 const books = ref<Book[]>([])
@@ -51,11 +89,29 @@ const selectedId = ref<string | null>(null)
 const showModal = ref(false)
 const editingBookId = ref<string | null>(null)
 const editingTitle = ref('')
-let titleInputRef = ref<HTMLInputElement | null>(null)
+const editingCategory = ref<BookCategory>('GENERAL')
+let titleInputRef: HTMLInputElement | null = null
+let editRowRef: HTMLDivElement | null = null
+
+const bindEditRowRef = (el: unknown) => {
+  editRowRef = el ? (el as HTMLDivElement) : null
+}
+
+const bindTitleInputRef = (el: unknown) => {
+  titleInputRef = el ? (el as HTMLInputElement) : null
+}
+
+const categoryFilter = ref<'ALL' | BookCategory>('ALL')
 
 const emit = defineEmits<{
   bookSelected: [bookId: string]
 }>()
+
+const filteredBooks = computed(() =>
+    categoryFilter.value === 'ALL'
+        ? books.value
+        : books.value.filter(b => b.category === categoryFilter.value)
+)
 
 
 
@@ -66,8 +122,9 @@ const reloadBooks = async () => {
 const startRename = async (book: Book) => {
   editingBookId.value = book.id
   editingTitle.value = book.title
+  editingCategory.value = book.category
   await nextTick()
-  titleInputRef.value?.focus()
+  titleInputRef?.focus()
 }
 
 const cancelRename = () => {
@@ -75,17 +132,53 @@ const cancelRename = () => {
   editingTitle.value = ''
 }
 
-const saveRename = async (bookId: string) => {
-  const trimmed = editingTitle.value.trim()
+const handleEditFocusOut = (bookId: string, event: FocusEvent) => {
+  const container = editRowRef ?? (event.currentTarget as HTMLElement)
+  const relatedTarget = event.relatedTarget as Node | null
+  if (relatedTarget && container.contains(relatedTarget)) {
+    return
+  }
+  requestAnimationFrame(() => {
+    const active = document.activeElement
+    if (active && container.contains(active)) {
+      return
+    }
+    saveRename(bookId)
+  })
+}
 
-  const original = books.value.find(b => b.id === bookId)?.title
-  if (!trimmed || trimmed === original) {
+const saveRename = async (bookId: string) => {
+  const book = books.value.find(b => b.id === bookId)
+  if (!book) {
     cancelRename()
     return
   }
 
-  await renameBook(bookId, trimmed)
-  await reloadBooks()
+  const trimmed = editingTitle.value.trim()
+  const titleChanged = trimmed !== book.title
+  const categoryChanged = editingCategory.value !== book.category
+
+  if (!titleChanged && !categoryChanged) {
+    cancelRename()
+    return
+  }
+
+  let saved = false
+
+  if (titleChanged && trimmed) {
+    await renameBook(bookId, trimmed)
+    saved = true
+  }
+
+  if (categoryChanged) {
+    await updateBookCategory(bookId, editingCategory.value)
+    saved = true
+  }
+
+  if (saved) {
+    await reloadBooks()
+  }
+
   cancelRename()
 }
 
@@ -139,21 +232,46 @@ onMounted(async () => {
 .book-info {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+.book-edit-block {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.book-title-row {
+  display: block;
+  width: 100%;
+  min-width: 0;
 }
 
 .book-title {
+  display: block;
   font-size: 13px;
   color: #e0e0e0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  width: 100%;
+}
+
+.book-category {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #888;
+  border: 1px solid #3a4156;
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
 }
 
 .book-pages {
   font-size: 11px;
   color: #888;
-  margin-top: 2px;
 }
 
 .btn-add {
@@ -198,6 +316,14 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+.book-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  width: 100%;
+}
+
 .title-input {
   background: #2d3447;
   border: 1px solid #2d5a9e;
@@ -209,5 +335,34 @@ onMounted(async () => {
   outline: none;
 }
 
+.category-edit-select {
+  background: #2d3447;
+  border: 1px solid #2d5a9e;
+  border-radius: 4px;
+  color: white;
+  font-size: 11px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+  line-height: 1.2;
+}
+
 .book-item:hover .btn-delete { opacity: 1; }
+
+.category-filter {
+  padding: 0 8px 8px;
+}
+
+.category-filter select {
+  width: 100%;
+  background: #2d3447;
+  color: #e0e0e0;
+  border: 1px solid #3a4156;
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
 </style>

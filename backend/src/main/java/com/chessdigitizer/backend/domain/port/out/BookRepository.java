@@ -2,6 +2,7 @@ package com.chessdigitizer.backend.domain.port.out;
 
 import com.chessdigitizer.backend.domain.model.AnalysisNode;
 import com.chessdigitizer.backend.domain.model.Book;
+import com.chessdigitizer.backend.domain.model.BookCategory;
 import com.chessdigitizer.backend.domain.model.ChessFile;
 
 import java.util.List;
@@ -15,6 +16,8 @@ public interface BookRepository {
     void deleteById(UUID id);
     Optional<ChessFile> findChessFileById(UUID chessFileId);
     void updateTitle(UUID id, String newTitle);
+
+    void updateCategory(UUID id, BookCategory category);
 
     void saveChessFile(ChessFile chessFile);
 

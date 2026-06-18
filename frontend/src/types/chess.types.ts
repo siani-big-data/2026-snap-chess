@@ -1,3 +1,13 @@
+export type BookCategory = 'APERTURAS' | 'FINALES' | 'TACTICA' | 'ESTRATEGIA' | 'GENERAL'
+
+export const CATEGORY_LABELS: Record<BookCategory, string> = {
+    APERTURAS: 'Aperturas',
+    FINALES: 'Finales',
+    TACTICA: 'Táctica',
+    ESTRATEGIA: 'Estrategia',
+    GENERAL: 'General'
+}
+
 export interface BoundingBox {
     x: number
     y: number
@@ -16,6 +26,7 @@ export interface ChessFile {
     title: string
     originalFilename: string
     totalPages: number
+    category: BookCategory
     boards: ChessBoard[]
 }
 export interface Book {
@@ -23,6 +34,7 @@ export interface Book {
     title: string
     originalFilename: string
     totalPages: number
+    category: BookCategory
 }
 export interface AnalysisNode {
     move: string | null

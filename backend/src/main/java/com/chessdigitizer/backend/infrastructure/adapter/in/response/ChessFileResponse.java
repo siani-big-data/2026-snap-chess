@@ -1,5 +1,6 @@
 package com.chessdigitizer.backend.infrastructure.adapter.in.response;
 
+import com.chessdigitizer.backend.domain.model.BookCategory;
 import com.chessdigitizer.backend.domain.model.BoundingBox;
 import com.chessdigitizer.backend.domain.model.ChessBoard;
 import com.chessdigitizer.backend.domain.model.ChessFile;
@@ -15,6 +16,7 @@ public class ChessFileResponse {
     private String title;
     private String originalFilename;
     private int totalPages;
+    private BookCategory category;
     private List<ChessBoardResponse> boards = new ArrayList<>();
 
     public static ChessFileResponse fromDomain(ChessFile chessFile) {
@@ -44,6 +46,7 @@ public class ChessFileResponse {
         response.setTitle(chessFile.title());
         response.setOriginalFilename(chessFile.originalFilename());
         response.setTotalPages(chessFile.totalPages());
+        response.setCategory(chessFile.category());
 
         return response;
     }

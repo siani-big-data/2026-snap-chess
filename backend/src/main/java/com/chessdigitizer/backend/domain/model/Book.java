@@ -6,6 +6,12 @@ public record Book(
         UUID id,
         String title,
         String originalFilename,
-        int totalPages
+        int totalPages,
+        BookCategory category
 ) {
+    public Book {
+        if (category == null) {
+            category = BookCategory.GENERAL;
+        }
+    }
 }

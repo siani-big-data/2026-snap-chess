@@ -2,6 +2,7 @@ package com.chessdigitizer.backend.infrastructure.adapter.out;
 
 import com.chessdigitizer.backend.domain.model.Book;
 import com.chessdigitizer.backend.application.config.GlobalProperties;
+import com.chessdigitizer.backend.domain.model.BookCategory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,7 +30,7 @@ class ChessFileRepositoryTest {
     void save_shouldCreatePhysicalFile() throws IOException {
         // 1. Preparar datos de prueba
         UUID bookId = UUID.randomUUID();
-        Book book = new Book(bookId, "Test Book", "test.pdf", 100);
+        Book book = new Book(bookId, "Test Book", "test.pdf", 100, BookCategory.GENERAL);
 
         // 2. Ejecutar
         repository.save(book);

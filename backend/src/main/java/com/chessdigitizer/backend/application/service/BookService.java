@@ -1,6 +1,7 @@
 package com.chessdigitizer.backend.application.service;
 
 import com.chessdigitizer.backend.domain.model.Book;
+import com.chessdigitizer.backend.domain.model.BookCategory;
 import com.chessdigitizer.backend.domain.model.ChessFile;
 import com.chessdigitizer.backend.domain.port.in.LoadBookUseCase;
 import com.chessdigitizer.backend.domain.port.out.BookRepository;
@@ -44,7 +45,7 @@ public class BookService implements LoadBookUseCase {
             try (PDDocument doc = Loader.loadPDF(path.toFile())) {
                 numberOfPages = doc.getNumberOfPages();
             }
-            Book book = new Book(uuid, title, originalFilename, numberOfPages);
+            Book book = new Book(uuid, title, originalFilename, numberOfPages,BookCategory.GENERAL);
             bookRepository.save(book);
             log.info("Libro importado: {} with id {}", title, uuid);
             return book;
@@ -83,6 +84,13 @@ public class BookService implements LoadBookUseCase {
     @Override
     public Book renameBook(UUID id, String newTitle) {
         bookRepository.updateTitle(id, newTitle);
+        return bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Book not found: " + id));
+    }
+
+    @Override
+    public Book updateCategory(UUID id, BookCategory category) {
+        bookRepository.updateCategory(id, category);
         return bookRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Book not found: " + id));
     }
