@@ -78,6 +78,7 @@ public class AnalyzeBoardService implements AnalyzeBoardUseCase {
                 chessFile.originalFilename(),
                 chessFile.totalPages(),
                 chessFile.category(),
+                chessFile.ownerId(),
                 updatedBoards
         );
         bookRepository.saveChessFile(updatedChessFile);

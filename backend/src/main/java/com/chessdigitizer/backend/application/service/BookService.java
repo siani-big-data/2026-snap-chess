@@ -6,6 +6,7 @@ import com.chessdigitizer.backend.domain.model.ChessFile;
 import com.chessdigitizer.backend.domain.port.in.LoadBookUseCase;
 import com.chessdigitizer.backend.domain.port.out.BookRepository;
 import com.chessdigitizer.backend.application.config.GlobalProperties.StorageProperties;
+import com.chessdigitizer.backend.domain.port.out.CurrentUserPort;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -26,26 +27,29 @@ public class BookService implements LoadBookUseCase {
 
     BookRepository bookRepository;
     StorageProperties storageProperties;
+    private final CurrentUserPort currentUserPort;
 
 
-    public BookService(BookRepository bookRepository, StorageProperties storageProperties) {
+    public BookService(BookRepository bookRepository, StorageProperties storageProperties, CurrentUserPort currentUserPort) {
         this.bookRepository = bookRepository;
         this.storageProperties = storageProperties;
+        this.currentUserPort = currentUserPort;
 
     }
 
     @Override
     public Book importBook(byte[] fileBytes, String originalFilename, String title) {
-
+        UUID ownerId = currentUserPort.getCurrentUserId();
         UUID uuid = UUID.randomUUID();
-        Path path = Paths.get(storageProperties.getBooksPath(), uuid + ".pdf");
+        Path path = Paths.get(storageProperties.getBooksPath(), ownerId.toString(), uuid + ".pdf");
         try {
+            Files.createDirectories(path.getParent());
             Files.write(path, fileBytes, StandardOpenOption.CREATE_NEW);
             int numberOfPages;
             try (PDDocument doc = Loader.loadPDF(path.toFile())) {
                 numberOfPages = doc.getNumberOfPages();
             }
-            Book book = new Book(uuid, title, originalFilename, numberOfPages,BookCategory.GENERAL);
+            Book book = new Book(uuid, title, originalFilename, numberOfPages, BookCategory.GENERAL, ownerId);
             bookRepository.save(book);
             log.info("Libro importado: {} with id {}", title, uuid);
             return book;
@@ -66,13 +70,14 @@ public class BookService implements LoadBookUseCase {
 
     @Override
     public void deleteBook(UUID bookId) {
-        Path path = Paths.get(storageProperties.getBooksPath(), bookId + ".pdf");
+        UUID ownerId = currentUserPort.getCurrentUserId();
+        Path path = Paths.get(storageProperties.getBooksPath(), ownerId.toString(), bookId + ".pdf");
         try {
             Files.deleteIfExists(path);
             bookRepository.deleteById(bookId);
             log.info("Libro eliminado: con id {}", bookId);
         } catch (IOException e) {
-            throw new RuntimeException("Error eliminando Libro: "+bookId,e);
+            throw new RuntimeException("Error eliminando Libro: " + bookId, e);
         }
     }
 

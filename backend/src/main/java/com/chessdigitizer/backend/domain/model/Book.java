@@ -7,11 +7,15 @@ public record Book(
         String title,
         String originalFilename,
         int totalPages,
-        BookCategory category
+        BookCategory category,
+        UUID ownerId
 ) {
     public Book {
         if (category == null) {
             category = BookCategory.GENERAL;
+        }
+        if (ownerId == null) {
+            throw new IllegalArgumentException("Un libro siempre debe tener un propietario");
         }
     }
 }

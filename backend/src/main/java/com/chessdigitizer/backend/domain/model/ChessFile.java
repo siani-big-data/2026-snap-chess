@@ -10,11 +10,15 @@ public record ChessFile(
         String originalFilename,
         int totalPages,
         BookCategory category,
+        UUID ownerId,
         List<ChessBoard> boards
         ) {
     public ChessFile {
         if (category == null) {
             category = BookCategory.GENERAL;
+        }
+        if (ownerId == null) {
+            throw new IllegalArgumentException("Un libro siempre debe tener un propietario");
         }
     }
 }
