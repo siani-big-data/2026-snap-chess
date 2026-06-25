@@ -1,6 +1,7 @@
 package com.chessdigitizer.backend.infrastructure.adapter.out;
 
 import com.chessdigitizer.backend.domain.model.*;
+import com.chessdigitizer.backend.domain.port.out.CurrentUserPort;
 import com.chessdigitizer.backend.infrastructure.adapter.out.DTO.AnalysisNodeDTO;
 import com.chessdigitizer.backend.infrastructure.adapter.out.DTO.BoundingBoxDTO;
 import com.chessdigitizer.backend.infrastructure.adapter.out.DTO.ChessBoardDTO;
@@ -28,57 +29,59 @@ public class ChessFileRepository implements BookRepository {
 
     StorageProperties storageProperties;
     ObjectMapper objectMapper;
-    public ChessFileRepository(StorageProperties storageProperties, ObjectMapper objectMapper) {
+    CurrentUserPort currentUserPort;
+
+    public ChessFileRepository(StorageProperties storageProperties, ObjectMapper objectMapper, CurrentUserPort currentUserPort) {
         this.storageProperties = storageProperties;
         this.objectMapper = objectMapper;
+        this.currentUserPort = currentUserPort;
     }
 
     @Override
     public void save(Book book) {
-        ChessFileDTO chessFileDTO;
+        Path path = resolveChessPath(book.ownerId(), book.id());
+        try {
+            Files.createDirectories(path.getParent());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
-        Path path = Paths.get(storageProperties.getChessPath(),book.id().toString() + ".chess");
+        ChessFileDTO chessFileDTO;
         if (!Files.exists(path)) {
             chessFileDTO = new ChessFileDTO();
-        }else {
+        } else {
             chessFileDTO = objectMapper.readValue(path, ChessFileDTO.class);
         }
 
         chessFileDTO.updateFromDomain(book);
-        objectMapper.writeValue(path,chessFileDTO);
+        objectMapper.writeValue(path, chessFileDTO);
         log.info("Archivo chess creado para el libro {}", book.id());
     }
 
 
     @Override
     public Optional<Book> findById(UUID id) {
-        ChessFileDTO chessFileDTO;
-        Path path = Paths.get(storageProperties.getChessPath(),id + ".chess");
+        Path path = resolveChessPath(currentUserPort.getCurrentUserId(), id);
         if (!Files.exists(path)) return Optional.empty();
-
-        chessFileDTO = objectMapper.readValue(path, ChessFileDTO.class);
-        return Optional.of(chessFileDTO.toBook());
-
+        return Optional.of(objectMapper.readValue(path, ChessFileDTO.class).toBook());
     }
 
     @Override
     public List<Book> findAll() {
-        // Se podrá hacer con una única Stream?
-        try(Stream<Path> files = Files.list(Path.of(storageProperties.getChessPath()))){
+        Path ownerDir = Paths.get(storageProperties.getChessPath(), currentUserPort.getCurrentUserId().toString());
+        if (!Files.exists(ownerDir)) return List.of();
 
+        try (Stream<Path> files = Files.list(ownerDir)) {
             List<Book> books = new ArrayList<>();
-            Stream<Path> chessFiles =  files.filter(file -> file.getFileName().toString().endsWith(".chess"));
-
-            chessFiles.forEach(file -> {
-                try {
-                    books.add(objectMapper.readValue(file, ChessFileDTO.class).toBook());
-                } catch (JacksonException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-
+            files.filter(file -> file.getFileName().toString().endsWith(".chess"))
+                    .forEach(file -> {
+                        try {
+                            books.add(objectMapper.readValue(file, ChessFileDTO.class).toBook());
+                        } catch (JacksonException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
             return books;
-
         } catch (IOException e) {
             log.error(e.getMessage());
             return List.of();
@@ -86,8 +89,7 @@ public class ChessFileRepository implements BookRepository {
     }
     @Override
     public void deleteById(UUID id) {
-        Path path = Paths.get(storageProperties.getChessPath(),id + ".chess");
-
+        Path path = resolveChessPath(currentUserPort.getCurrentUserId(), id);
         try {
             Files.deleteIfExists(path);
         } catch (IOException e) {
@@ -98,36 +100,37 @@ public class ChessFileRepository implements BookRepository {
 
     @Override
     public Optional<ChessFile> findChessFileById(UUID chessFileId) {
-        Path path = Paths.get(storageProperties.getChessPath(),chessFileId + ".chess");
+        Path path = resolveChessPath(currentUserPort.getCurrentUserId(), chessFileId);
         if (!Files.exists(path)) return Optional.empty();
-
-        ChessFile chessFile = toChessFile(objectMapper.readValue(path, ChessFileDTO.class));
-        return Optional.of(chessFile);
+        return Optional.of(toChessFile(objectMapper.readValue(path, ChessFileDTO.class)));
     }
 
     @Override
     public void updateTitle(UUID id, String newTitle) {
-        Path path = Paths.get(storageProperties.getChessPath(), id + ".chess");
+        Path path = resolveChessPath(currentUserPort.getCurrentUserId(), id);
         if (!Files.exists(path)) return;
         ChessFileDTO chessFileDTO = objectMapper.readValue(path, ChessFileDTO.class);
         chessFileDTO.setTitle(newTitle);
-        objectMapper.writeValue(path,chessFileDTO);
-
+        objectMapper.writeValue(path, chessFileDTO);
     }
 
     @Override
     public void updateCategory(UUID id, BookCategory category) {
-        Path path = Paths.get(storageProperties.getChessPath(), id + ".chess");
+        Path path = resolveChessPath(currentUserPort.getCurrentUserId(), id);
         if (!Files.exists(path)) return;
         ChessFileDTO chessFileDTO = objectMapper.readValue(path, ChessFileDTO.class);
         chessFileDTO.setCategory(category);
         objectMapper.writeValue(path, chessFileDTO);
-        log.info("Categoría actualizada a '{}' para el libro {}", category, id);
     }
 
     @Override
     public void saveChessFile(ChessFile chessFile) {
-        Path path = Paths.get(storageProperties.getChessPath(), chessFile.id() + ".chess");
+        Path path = resolveChessPath(chessFile.ownerId(), chessFile.id());
+        try {
+            Files.createDirectories(path.getParent());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         ChessFileDTO dto = toChessFileDTO(chessFile);
         objectMapper.writeValue(path, dto);
         log.info("ChessFile guardado para el libro {}", chessFile.id());
@@ -135,37 +138,27 @@ public class ChessFileRepository implements BookRepository {
 
     @Override
     public void updateBoardAnalysis(UUID bookId, String boardId, AnalysisNode analysis) {
-        Path path = Paths.get(storageProperties.getChessPath(), bookId + ".chess");
+        Path path = resolveChessPath(currentUserPort.getCurrentUserId(), bookId);
         ChessFileDTO dto = objectMapper.readValue(path, ChessFileDTO.class);
-
         dto.getBoards().stream()
                 .filter(b -> b.getId().equals(boardId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Board not found: " + boardId))
                 .setAnalysis(toAnalysisNodeDTO(analysis));
-
         objectMapper.writeValue(path, dto);
-        log.info("Análisis actualizado para tablero '{}' del libro '{}'", boardId, bookId);
     }
 
     @Override
     public void updateBoardEval(UUID bookId, String boardId, int evalCp) {
-        Path path = Paths.get(storageProperties.getChessPath(), bookId + ".chess");
+        Path path = resolveChessPath(currentUserPort.getCurrentUserId(), bookId);
         ChessFileDTO dto = objectMapper.readValue(path, ChessFileDTO.class);
-
         ChessBoardDTO board = dto.getBoards().stream()
                 .filter(b -> b.getId().equals(boardId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Board not found: " + boardId));
-
-        if (board.getAnalysis() == null) {
-            board.setAnalysis(new AnalysisNodeDTO());
-        }
+        if (board.getAnalysis() == null) board.setAnalysis(new AnalysisNodeDTO());
         board.getAnalysis().setEvalCp(evalCp);
-
         objectMapper.writeValue(path, dto);
-        log.info("EvalCp '{}' guardado para tablero '{}' del libro '{}'", evalCp, boardId, bookId);
-
     }
 
     private ChessFile toChessFile(ChessFileDTO dto) {
@@ -177,6 +170,7 @@ public class ChessFileRepository implements BookRepository {
                 dto.getOriginalFilename(),
                 dto.getTotalPages(),
                 dto.getCategory(),
+                dto.getOwnerId(),
                 boards
         );
     }
@@ -229,6 +223,7 @@ public class ChessFileRepository implements BookRepository {
         dto.setOriginalFilename(chessFile.originalFilename());
         dto.setTotalPages(chessFile.totalPages());
         dto.setCategory(chessFile.category());
+        dto.setOwnerId(chessFile.ownerId());
         dto.setBoards(
                 chessFile.boards().stream()
                         .map(this::toChessBoardDTO)
@@ -272,6 +267,9 @@ public class ChessFileRepository implements BookRepository {
         return dto;
     }
 
+    private Path resolveChessPath(UUID ownerId, UUID bookId) {
+        return Paths.get(storageProperties.getChessPath(), ownerId.toString(), bookId + ".chess");
+    }
 
 }
 

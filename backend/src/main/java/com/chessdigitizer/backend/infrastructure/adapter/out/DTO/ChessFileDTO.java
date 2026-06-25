@@ -18,6 +18,7 @@ public class ChessFileDTO {
     private String originalFilename;
     private int totalPages;
     private BookCategory category;
+    private UUID ownerId;
     private List<ChessBoardDTO> boards = new ArrayList<>();
 
     public void updateFromDomain(Book book) {
@@ -26,9 +27,10 @@ public class ChessFileDTO {
         this.originalFilename = book.originalFilename();
         this.totalPages = book.totalPages();
         this.category = book.category();
+        this.ownerId = book.ownerId();
     }
 
     public Book toBook() {
-        return new Book(id, title, originalFilename, totalPages, category);
+        return new Book(id, title, originalFilename, totalPages, category, ownerId);
     }
 }
