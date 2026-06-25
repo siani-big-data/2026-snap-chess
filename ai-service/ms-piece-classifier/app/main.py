@@ -6,7 +6,7 @@ import io
 from app.classifier import PieceClassifier
 from app.color_detector import detect_color
 
-MODEL_PATH = "models/RESNET18_SCRATCH_V3.pth"
+MODEL_PATH = "models/RESNET18_SCRATCH_V4.pth"
 
 classifier: PieceClassifier = None
 

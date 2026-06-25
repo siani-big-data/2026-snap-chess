@@ -6,10 +6,10 @@ from app.model import build_model
 CLASSES = ['b', 'empty', 'k', 'n', 'p', 'q', 'r']
 
 TRANSFORM = transforms.Compose([
-    transforms.Resize((64, 64)),
+    transforms.Resize((32, 32)),
     transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406],
-                         [0.229, 0.224, 0.225])
+    transforms.Normalize([0.7786, 0.7785, 0.7787],
+                         [0.2845, 0.2846, 0.2845])
 ])
 
 
