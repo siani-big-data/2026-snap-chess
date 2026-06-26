@@ -1,4 +1,5 @@
 import type { AnalysisNode, AddMoveRequest } from '../types/chess.types'
+import { authFetch } from './authFetch.ts'
 
 const BASE_URL = 'http://localhost:8080/api'
 
@@ -7,7 +8,7 @@ export async function addMove(
     boardId: string,
     request: AddMoveRequest
 ): Promise<AnalysisNode> {
-    const response = await fetch(
+    const response = await authFetch(
         `${BASE_URL}/books/${bookId}/boards/${boardId}/analysis/moves`,
         {
             method: 'POST',
@@ -25,7 +26,7 @@ export async function updateComment(
     path: string[],
     comment: string
 ): Promise<AnalysisNode> {
-    const response = await fetch(
+    const response = await authFetch(
         `${BASE_URL}/books/${bookId}/boards/${boardId}/analysis/comment`,
         {
             method: 'PATCH',
@@ -41,11 +42,11 @@ export async function analyzePosition(
     bookId: string,
     boardId: string,
     moveTimeMs: number = 1000,
-    signal?: AbortSignal   // ← nuevo parámetro
+    signal?: AbortSignal
 ): Promise<{ evalCp: number; formattedEval: string; bestMove: string }> {
-    const response = await fetch(
+    const response = await authFetch(
         `${BASE_URL}/books/${bookId}/boards/${boardId}/engine/analyze?moveTimeMs=${moveTimeMs}`,
-        { method: 'POST', signal }  // ← pasar signal al fetch
+        { method: 'POST', signal }
     )
     if (!response.ok) throw new Error(`Error analizando posición: ${response.status}`)
     return response.json()
@@ -56,7 +57,7 @@ export async function analyzeFen(
     moveTimeMs: number = 1000,
     signal?: AbortSignal
 ): Promise<{ evalCp: number; formattedEval: string; bestMove: string }> {
-    const response = await fetch(
+    const response = await authFetch(
         `${BASE_URL}/engine/analyze-fen?moveTimeMs=${moveTimeMs}`,
         {
             method: 'POST',

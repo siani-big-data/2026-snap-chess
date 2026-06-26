@@ -34,34 +34,42 @@
       <span v-if="analyzeError" class="analyze-error">{{ analyzeError }}</span>
     </div>
 
-    
+
     <div class="page-container" :style="containerStyle">
-      <img
-          ref="pageImageRef"
-          :src="currentPageUrl"
-          @load="onImageLoad"
-          style="display: block; width: 100%"
-          alt="Imagen página completa"/>
-      <BoardOverlay
-          v-for="board in currentPageBoards"
-          :key="board.id"
-          :board="board"
-          :pageWidthPt="pageWidthPt"
-          :pageHeightPt="pageHeightPt"
-          @boardClicked="emit('boardSelected', board)"
+      <div v-if="!currentPageUrl" class="page-loading">
+        <p v-if="pageLoadError" class="page-load-error">{{ pageLoadError }}</p>
+        <template v-else>
+          <font-awesome-icon icon="rotate" spin />
+          <span>Cargando página…</span>
+        </template>
+      </div>
 
-      />
+      <template v-else>
+        <p v-if="pageLoadError" class="page-load-error-banner">{{ pageLoadError }}</p>
+        <img
+            ref="pageImageRef"
+            :src="currentPageUrl"
+            @load="onImageLoad"
+            style="display: block; width: 100%"
+            alt="Imagen página completa"/>
+        <BoardOverlay
+            v-for="board in currentPageBoards"
+            :key="board.id"
+            :board="board"
+            :pageWidthPt="pageWidthPt"
+            :pageHeightPt="pageHeightPt"
+            @boardClicked="emit('boardSelected', board)"
+        />
+      </template>
     </div>
-
   </div>
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, ref} from "vue";
-import type {ChessBoard, ChessFile} from "../../types/chess.types.ts";
-import {getChessFile, getPageImageUrl} from "../../api/bookApi.ts";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import type { ChessBoard, ChessFile } from "../../types/chess.types.ts";
+import { getChessFile, getPageImageBlob, analyzePage } from "../../api/bookApi.ts";
 import BoardOverlay from "./BoardOverlay.vue";
-import { analyzePage } from '../../api/bookApi.ts'
 
 const isAnalyzing = ref(false)
 const analyzeError = ref<string | null>(null)
@@ -75,7 +83,10 @@ const MIN_ZOOM = 0.5
 const MAX_ZOOM = 2.5
 const ZOOM_STEP = 0.15
 const pageInput = ref(1)
-
+const currentPageUrl = ref<string | undefined>(undefined)
+const pageLoadError = ref<string | null>(null)
+let activeObjectUrl: string | null = null
+const isLoadingPage = ref(true)
 
 const props = defineProps<{
   bookId: string
@@ -89,10 +100,6 @@ const emit = defineEmits<{
 const zoomIn  = () => { if (zoomLevel.value < MAX_ZOOM) zoomLevel.value = +(zoomLevel.value + ZOOM_STEP).toFixed(2) }
 const zoomOut = () => { if (zoomLevel.value > MIN_ZOOM) zoomLevel.value = +(zoomLevel.value - ZOOM_STEP).toFixed(2) }
 const resetZoom = () => { zoomLevel.value = 1 }
-
-const currentPageUrl = computed(() =>
-    getPageImageUrl(props.bookId, currentPage.value)
-)
 
 
 const baseMaxWidth = 800  // ancho base en px
@@ -112,6 +119,25 @@ const goToPage = () => {
     currentPage.value = target
   } else {
     pageInput.value = currentPage.value
+  }
+}
+
+const loadPageImage = async (pageNumber: number) => {
+  isLoadingPage.value = true
+  pageLoadError.value = null
+  try {
+    const blob = await getPageImageBlob(props.bookId, pageNumber)
+    const objectUrl = URL.createObjectURL(blob)
+
+    if (activeObjectUrl) {
+      URL.revokeObjectURL(activeObjectUrl)
+    }
+    activeObjectUrl = objectUrl
+    currentPageUrl.value = objectUrl
+  } catch (e) {
+    pageLoadError.value = 'No se pudo cargar la página.'
+  } finally {
+    isLoadingPage.value = false
   }
 }
 
@@ -149,8 +175,16 @@ const onAnalyzePage = async () => {
   }
 }
 
-
+watch(currentPage, (newPage) => {
+  loadPageImage(newPage)
+})
+onUnmounted(() => {
+  if (activeObjectUrl) {
+    URL.revokeObjectURL(activeObjectUrl)
+  }
+})
 onMounted(async () => {
+  await loadPageImage(currentPage.value)
   chessFile.value = await getChessFile(props.bookId)
 })
 </script>
@@ -279,5 +313,25 @@ onMounted(async () => {
 .analyze-error {
   font-size: 12px;
   color: #e74c3c;
+}
+
+.page-load-error {
+  color: #e74c3c;
+  font-size: 14px;
+  padding: 40px 0;
+}
+.page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 60px 0;
+  color: #888;
+  font-size: 14px;
+}
+.page-load-error-banner {
+  color: #e74c3c;
+  font-size: 13px;
+  margin: 0 0 8px;
 }
 </style>

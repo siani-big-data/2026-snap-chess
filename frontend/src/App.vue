@@ -1,10 +1,27 @@
 <template>
-  <div class="app-layout" :style="layoutStyle">
+  <LoginView
+      v-if="!isAuthenticated && authView === 'login'"
+      @loginSuccess="() => {}"
+      @switchToRegister="authView = 'register'"
+  />
+  <RegisterView
+      v-else-if="!isAuthenticated"
+      @loginSuccess="() => {}"
+      @switchToLogin="authView = 'login'"
+  />
+
+  <div v-else class="app-layout" :style="layoutStyle">
 
     <aside class="sidebar-left">
       <div class="sidebar-header">
         <span class="app-logo"><font-awesome-icon icon="chess-knight" /></span>
         <span class="app-title">ChessPDF</span>
+      </div>
+      <div class="user-bar">
+        <span class="username"><font-awesome-icon icon="user" /> {{ currentUsername }}</span>
+        <button class="btn-logout" @click="handleLogout" title="Cerrar sesión">
+          <font-awesome-icon icon="arrow-right-from-bracket" />
+        </button>
       </div>
       <BookList @bookSelected="onBookSelected" />
     </aside>
@@ -38,7 +55,12 @@ import { ref, computed } from 'vue'
 import BookList from './components/BookList/BookList.vue'
 import PdfViewer from './components/PdfViewer/PdfViewer.vue'
 import ChessBoardPanel from './components/ChessBoard/ChessBoardPanel.vue'
+import LoginView from './components/Auth/LoginView.vue'
+import RegisterView from './components/Auth/RegisterView.vue'
+import { isAuthenticated, currentUsername, clearSession } from './auth/authState.ts'
 import type { ChessBoard } from './types/chess.types.ts'
+
+const authView = ref<'login' | 'register'>('login')
 
 const selectedBookId  = ref<string | null>(null)
 const selectedBoard   = ref<ChessBoard | null>(null)
@@ -60,6 +82,13 @@ const onBookSelected = (bookId: string) => {
 const onSelectedBoard = (board: ChessBoard): void => {
   selectedBoard.value = board
   sidebarWidth.value = 500
+}
+
+const handleLogout = () => {
+  clearSession()
+  selectedBookId.value = null
+  selectedBoard.value = null
+  authView.value = 'login'
 }
 
 const startResize = (event: MouseEvent) => {
@@ -110,6 +139,35 @@ const startResize = (event: MouseEvent) => {
 
 .app-logo {
   font-size: 22px;
+}
+
+.user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid #2d3447;
+  font-size: 13px;
+  color: #888;
+}
+
+.username {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-logout {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+}
+
+.btn-logout:hover {
+  color: #e57373;
 }
 
 .main-content {

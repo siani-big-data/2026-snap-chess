@@ -1,12 +1,5 @@
-import axios from 'axios'
-import type {Book, BookCategory, ChessFile} from "../types/chess.types.ts";
-
-const apiClient = axios.create({
-    baseURL: '/api',
-    headers: {
-        'Content-Type': 'application/json'
-    }
-})
+import type { Book, BookCategory, ChessFile } from "../types/chess.types.ts";
+import { apiClient } from './httpClient.ts'
 
 export const getBooks = async():Promise<Book[]> =>{
     const {data} = await apiClient.get('/books');
@@ -18,10 +11,12 @@ export const getChessFile = async (bookId:string):Promise<ChessFile> =>{
     return data;
 }
 
-export const getPageImageUrl = (bookId:string, pageNumber:number):string =>{
-    return `${apiClient.defaults.baseURL}/books/${bookId}/pages/${pageNumber}`;
+export const getPageImageBlob = async (bookId: string, pageNumber: number): Promise<Blob> => {
+    const { data } = await apiClient.get(`/books/${bookId}/pages/${pageNumber}`, {
+        responseType: 'blob'
+    })
+    return data
 }
-
 export const importBook = async (file:File, title:string):Promise<Book> =>{
     const formData = new FormData();
     formData.append('file', file);
@@ -44,9 +39,7 @@ export const updateBookCategory = async (bookId: string, category: BookCategory)
     return data
 }
 
-export const analyzePage = (bookId: string, pageNumber: number): Promise<ChessFile> =>
-    fetch(`/api/books/${bookId}/pages/${pageNumber}/analyze`, { method: 'POST' })
-        .then(res => {
-            if (!res.ok) throw new Error(`Error al analizar la página ${pageNumber}`);
-            return res.json();
-        });
+export const analyzePage = async (bookId: string, pageNumber: number): Promise<ChessFile> => {
+    const { data } = await apiClient.post(`/books/${bookId}/pages/${pageNumber}/analyze`)
+    return data
+}

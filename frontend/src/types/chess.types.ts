@@ -47,3 +47,10 @@ export interface AddMoveRequest {
     path: string[]
     move: string
 }
+export interface User {
+    id: string
+    username: string
+}
+export interface AuthToken {
+    token: string
+}
