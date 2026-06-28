@@ -1,7 +1,10 @@
 package com.chessdigitizer.backend.infrastructure.adapter.in;
 
+import com.chessdigitizer.backend.domain.exception.IllegalPositionException;
 import com.chessdigitizer.backend.domain.model.EngineAnalysis;
 import com.chessdigitizer.backend.domain.model.Fen;
+import com.chessdigitizer.backend.domain.model.FenLegalityValidator;
+import com.chessdigitizer.backend.domain.model.FenValidationResult;
 import com.chessdigitizer.backend.domain.port.in.AnalyzePositionUseCase;
 import com.chessdigitizer.backend.domain.port.out.EngineService;
 import com.chessdigitizer.backend.infrastructure.adapter.in.response.EngineAnalysisResponse;
@@ -16,11 +19,13 @@ public class EngineController {
 
     private final AnalyzePositionUseCase analyzePositionUseCase;
     private final EngineService engineService;
+    private final FenLegalityValidator fenLegalityValidator;
 
 
-    public EngineController(AnalyzePositionUseCase analyzePositionUseCase, EngineService engineService) {
+    public EngineController(AnalyzePositionUseCase analyzePositionUseCase, EngineService engineService,  FenLegalityValidator fenLegalityValidator) {
         this.analyzePositionUseCase = analyzePositionUseCase;
         this.engineService = engineService;
+        this.fenLegalityValidator = fenLegalityValidator;
     }
 
     @PostMapping("/api/books/{bookId}/boards/{boardId}/engine/analyze")
@@ -39,6 +44,12 @@ public class EngineController {
             @RequestParam(defaultValue = "1000") int moveTimeMs) {
 
         Fen fen = new Fen(body.get("fen"));
+
+        FenValidationResult validation = fenLegalityValidator.validate(fen);
+        if (!validation.valid()) {
+            throw new IllegalPositionException(validation.errors());
+        }
+
         EngineAnalysis result = engineService.analyze(fen, moveTimeMs);
         return ResponseEntity.ok(EngineAnalysisResponse.fromDomain(result));
     }

@@ -1,9 +1,6 @@
 package com.chessdigitizer.backend.domain.port.out;
 
-import com.chessdigitizer.backend.domain.model.AnalysisNode;
-import com.chessdigitizer.backend.domain.model.Book;
-import com.chessdigitizer.backend.domain.model.BookCategory;
-import com.chessdigitizer.backend.domain.model.ChessFile;
+import com.chessdigitizer.backend.domain.model.*;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,4 +21,6 @@ public interface BookRepository {
     void updateBoardAnalysis(UUID bookId, String boardId, AnalysisNode analysis);
 
     void updateBoardEval(UUID bookId, String boardId, int evalCp);
+
+    void updateBoardFen(UUID bookId, String boardId, Fen fen);
 }

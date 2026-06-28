@@ -161,6 +161,18 @@ public class ChessFileRepository implements BookRepository {
         objectMapper.writeValue(path, dto);
     }
 
+    @Override
+    public void updateBoardFen(UUID bookId, String boardId, Fen fen) {
+        Path path = resolveChessPath(currentUserPort.getCurrentUserId(), bookId);
+        ChessFileDTO dto = objectMapper.readValue(path, ChessFileDTO.class);
+        ChessBoardDTO board = dto.getBoards().stream()
+                .filter(b -> b.getId().equals(boardId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Board not found: " + boardId));
+        board.setFen(fen.value());
+        objectMapper.writeValue(path, dto);
+    }
+
     private ChessFile toChessFile(ChessFileDTO dto) {
         List<ChessBoard> boards = dto.getBoards().stream().map(this::toChessBoard).toList();
 

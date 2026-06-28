@@ -4,6 +4,7 @@ package com.chessdigitizer.backend.infrastructure.adapter.in;
 import com.chessdigitizer.backend.domain.model.Book;
 import com.chessdigitizer.backend.domain.model.BookCategory;
 import com.chessdigitizer.backend.domain.port.in.LoadBookUseCase;
+import com.chessdigitizer.backend.domain.port.in.UpdateBoardFenUseCase;
 import com.chessdigitizer.backend.infrastructure.adapter.in.response.ChessFileResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,9 +24,12 @@ import java.util.UUID;
 public class BookController {
 
     private final LoadBookUseCase loadBookUseCase;
+    private final UpdateBoardFenUseCase updateBoardFenUseCase;
 
-    public BookController(LoadBookUseCase loadBookUseCase) {
+    public BookController(LoadBookUseCase loadBookUseCase,  UpdateBoardFenUseCase updateBoardFenUseCase) {
+
         this.loadBookUseCase = loadBookUseCase;
+        this.updateBoardFenUseCase = updateBoardFenUseCase;
     }
 
 
@@ -85,5 +90,15 @@ public class BookController {
     }
 
     public record UpdateCategoryRequest(BookCategory category) {}
+
+    @PatchMapping("/{bookId}/boards/{boardId}/fen")
+    public ResponseEntity<Void> updateFen(
+            @PathVariable UUID bookId,
+            @PathVariable String boardId,
+            @RequestBody Map<String, String> body) {
+
+        updateBoardFenUseCase.updateFen(bookId, boardId, body.get("fen"));
+        return ResponseEntity.noContent().build();
+    }
 
 }
