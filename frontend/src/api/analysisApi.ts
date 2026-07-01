@@ -69,3 +69,28 @@ export async function analyzeFen(
     if (!response.ok) throw new Error(`Error analizando FEN: ${response.status}`)
     return response.json()
 }
+
+export async function updateBoardFen(
+    bookId: string,
+    boardId: string,
+    fen: string
+): Promise<void> {
+    const response = await authFetch(
+        `${BASE_URL}/books/${bookId}/boards/${boardId}/fen`,
+        {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fen })
+        }
+    )
+    if (!response.ok) {
+        const body = await response.json().catch(() => null)
+        throw new IllegalPositionError(body?.details ?? [`Error actualizando FEN: ${response.status}`])
+    }
+}
+
+export class IllegalPositionError extends Error {
+    constructor(public readonly details: string[]) {
+        super('Posición ilegal: ' + details.join('; '))
+    }
+}

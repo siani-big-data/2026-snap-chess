@@ -58,7 +58,7 @@
             :board="board"
             :pageWidthPt="pageWidthPt"
             :pageHeightPt="pageHeightPt"
-            @boardClicked="emit('boardSelected', board)"
+            @boardClicked="onBoardClicked(board)"
         />
       </template>
     </div>
@@ -176,8 +176,14 @@ const onAnalyzePage = async () => {
 }
 
 watch(currentPage, (newPage) => {
+  analyzeError.value = null
   loadPageImage(newPage)
 })
+
+const onBoardClicked = (board: ChessBoard) => {
+  analyzeError.value = null
+  emit('boardSelected', board)
+}
 onUnmounted(() => {
   if (activeObjectUrl) {
     URL.revokeObjectURL(activeObjectUrl)

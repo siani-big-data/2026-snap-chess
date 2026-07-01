@@ -7,22 +7,71 @@
 
     <template v-else>
 
-      <div class="board-area">
-        <div class="eval-bar" v-if="evalCp !== null || isAnalyzing">
-          <div class="eval-bar__white" :style="{ height: evalBarWhiteHeight }"/>
-          <div class="eval-bar__black" :style="{ height: evalBarBlackHeight }"/>
+      <div class="board-column">
+        <div v-if="correctionMode === 'reviewing'" class="correction-banner correction-banner--inline">
+          <p class="error-message" v-for="err in validationErrors" :key="err">{{ err }}</p>
+          <button
+              class="btn-confirm-correction"
+              :disabled="!canConfirmCorrection"
+              @click="confirmCorrection"
+          >
+            Comprobar
+          </button>
         </div>
 
-        <div class="board-wrapper" ref="boardWrapperRef">
-          <TheChessboard
-              :board-config="boardConfig"
-              :key="boardKey"
-              @move="onMove"
-              @board-created="onBoardCreated"
-          />
+        <div class="board-area">
+          <div class="eval-bar" v-if="evalCp !== null || isAnalyzing">
+            <div class="eval-bar__white" :style="{ height: evalBarWhiteHeight }"/>
+            <div class="eval-bar__black" :style="{ height: evalBarBlackHeight }"/>
+          </div>
+
+          <div v-if="correctionMode === 'pending_review'" class="correction-banner">
+            <p class="error-message">
+              Ha habido un error en el reconocimiento, por favor verifica las piezas del tablero.
+            </p>
+            <button class="btn-start-review" @click="correctionMode = 'reviewing'; boardLoadError = false">
+              Comenzar revisión
+            </button>
+          </div>
+
+          <div v-if="correctionMode !== 'pending_review'" class="board-wrapper" ref="boardWrapperRef">
+            <div v-if="boardLoadError" class="board-load-error-modal">
+              <p class="error-message">
+                No ha sido posible mostrar el tablero para su revisión. Por favor, recarga la página
+                e inténtalo de nuevo.
+              </p>
+            </div>
+            <TheChessboard
+                v-else
+                :board-config="boardConfig"
+                :key="boardKey"
+                @move="onMove"
+                @board-created="onBoardCreated"
+            />
+          </div>
         </div>
       </div>
 
+      <div v-if="correctionMode === 'reviewing' && popoverSquare" class="piece-correction-popover">
+        <p class="popover-title">Editando casilla: <strong>{{ popoverSquare }}</strong></p>
+
+        <div class="piece-options">
+          <button
+              v-for="opt in pieceOptions"
+              :key="opt.label"
+              class="piece-option-btn"
+              @click="applyPieceCorrection(opt.piece)"
+          >
+            {{ opt.label }}
+          </button>
+
+          <button class="piece-option-btn piece-option-empty" @click="applyPieceCorrection('empty')">
+            Vaciar casilla
+          </button>
+        </div>
+
+        <button class="popover-cancel" @click="popoverSquare = null">Cancelar</button>
+      </div>
 
       <div class="eval-info" v-if="evalCp !== null || isAnalyzing">
         <template v-if="isAnalyzing">
@@ -87,17 +136,19 @@
 </template>
 
 <script setup lang="ts">
-import {ref, computed, watch, onMounted, onUnmounted, nextTick} from 'vue'
+import {ref, computed, watch, onMounted, onUnmounted, nextTick, onErrorCaptured} from 'vue'
 import {BoardApi, TheChessboard} from 'vue3-chessboard'
 import 'vue3-chessboard/style.css'
 import type { BoardConfig } from 'vue3-chessboard'
 import type { ChessBoard } from '../../types/chess.types.ts'
-import {addMove, analyzeFen, analyzePosition} from '../../api/analysisApi'
+import {addMove, analyzeFen, analyzePosition, IllegalPositionError, updateBoardFen} from '../../api/analysisApi'
 import type { AnalysisNode } from '../../types/chess.types'
 import { Chess } from 'chess.js'
+import type { Square, Piece as ChessJsPiece } from 'chess.js'
 import AnalysisPanel from './AnalysisPanel.vue'
 import CommentPopUp from "./CommentPopUp.vue";
 import { updateComment } from '../../api/analysisApi'
+import {sanitizeFenForLoading, validateFenLegality} from '../../chess/fenLegality'
 
 const showpopup = ref(false)
 const popupEditMode = ref(false)
@@ -126,14 +177,30 @@ const showBestMove = ref(false)
 let analysisAbortController: AbortController | null = null
 let boardAPI: BoardApi | null = null
 let moveAnalysisController: AbortController | null = null
+const correctionMode = ref<'none' | 'pending_review' | 'reviewing'>('none')
+const validationErrors = ref<string[]>([])
+const canConfirmCorrection = ref(false)
+const popoverSquare = ref<Square | null>(null)
+const boardApiRef = ref<BoardApi | null>(null)
+const boardLoadError = ref(false)
 
-const FEN_REGEX = /^([rnbqkpRNBQKP1-8]{1,8}\/){7}[rnbqkpRNBQKP1-8]{1,8}\s[wb]\s/
+const pieceOptions: { label: string; piece: ChessJsPiece }[] = [
+  { label: 'Peón blanco',    piece: { color: 'w', type: 'p' } },
+  { label: 'Caballo blanco', piece: { color: 'w', type: 'n' } },
+  { label: 'Alfil blanco',   piece: { color: 'w', type: 'b' } },
+  { label: 'Torre blanca',   piece: { color: 'w', type: 'r' } },
+  { label: 'Dama blanca',    piece: { color: 'w', type: 'q' } },
+  { label: 'Rey blanco',     piece: { color: 'w', type: 'k' } },
+  { label: 'Peón negro',     piece: { color: 'b', type: 'p' } },
+  { label: 'Caballo negro',  piece: { color: 'b', type: 'n' } },
+  { label: 'Alfil negro',    piece: { color: 'b', type: 'b' } },
+  { label: 'Torre negra',    piece: { color: 'b', type: 'r' } },
+  { label: 'Dama negra',     piece: { color: 'b', type: 'q' } },
+  { label: 'Rey negro',      piece: { color: 'b', type: 'k' } },
+]
 
-const isValidFen = (fen: string): boolean => {
-  if (!FEN_REGEX.test(fen)) return false
-  return fen.includes('k') && fen.includes('K')
-}
 const onBoardCreated = (api: BoardApi) => {
+  boardApiRef.value = api
   boardAPI = api
   updateArrow()
 }
@@ -153,16 +220,26 @@ const updateArrow = () => {
 
 
 // COMPUTED
-const boardConfig = computed<BoardConfig>(() => ({
-  fen: navigatedFen.value
-      ?? (props.board?.fen && isValidFen(props.board.fen) ? props.board.fen : 'start'),
-  orientation: isFlipped.value ? 'black' : 'white',
-  movable: {
-    free: freeMode.value,
-    color: 'both',
-    showDests: true
+const boardConfig = computed<BoardConfig>(() => {
+  const rawFen = navigatedFen.value ?? props.board?.fen ?? 'start'
+  const fen = correctionMode.value === 'reviewing' ? sanitizeFenForLoading(rawFen) : rawFen
+  if (correctionMode.value === 'reviewing') {
+    console.log('[DEBUG boardConfig] FEN crudo:', rawFen, '→ FEN saneado:', fen)
   }
-}))
+
+  return {
+    fen,
+    orientation: isFlipped.value ? 'black' : 'white',
+    movable: {
+      free: freeMode.value,
+      color: correctionMode.value === 'reviewing' ? undefined : 'both',
+      showDests: correctionMode.value !== 'reviewing'
+    },
+    events: {
+      select: correctionMode.value === 'reviewing' ? onSquareSelectForCorrection : undefined
+    }
+  }
+})
 const currentComment = computed((): string => {
   if (!analysisTree.value || currentPath.value.length === 0) return ''
   let node = analysisTree.value
@@ -374,10 +451,21 @@ watch(() => props.board, () => {
   showBestMove.value = false
   navigatedFen.value = null
   showpopup.value    = false
+  correctionMode.value = 'none'
+  validationErrors.value = []
+  popoverSquare.value = null
+  boardLoadError.value = false
   boardKey.value++
 
   if (props.board) {
-    runEngineAnalysis()  // única llamada — maneja caché internamente
+    console.log('[DEBUG watch board] FEN original:', props.board.fen)
+    const validation = validateFenLegality(props.board.fen)
+    if (!validation.valid) {
+      correctionMode.value = 'pending_review'
+      validationErrors.value = validation.errors
+      return
+    }
+    runEngineAnalysis()
   }
 })
 watch(currentPath, () => {
@@ -409,6 +497,66 @@ onUnmounted(() => {
   analysisAbortController?.abort()
   moveAnalysisController?.abort()
 })
+
+onErrorCaptured((err) => {
+  console.error('Error al cargar el tablero en modo revisión:', err)
+  boardLoadError.value = true
+  return false // evita que el error se siga propagando hacia arriba
+})
+
+function onSquareSelectForCorrection(key: string) {
+  if (key === 'a0') return // 'a0' = deselección, sin casilla real
+  popoverSquare.value = key as Square
+}
+
+function applyPieceCorrection(piece: ChessJsPiece | 'empty') {
+  if (!boardApiRef.value || !popoverSquare.value) return
+
+  if (piece === 'empty') {
+    boardApiRef.value.removePiece(popoverSquare.value)
+  } else {
+    boardApiRef.value.putPiece(piece, popoverSquare.value)
+  }
+
+  boardApiRef.value.setConfig({}) // fuerza redrawAll(): removePiece no redibuja por su cuenta,
+  // y putPiece tampoco lo hace si chess.js rechaza la pieza
+
+  popoverSquare.value = null
+  revalidateCurrentPosition()
+}
+
+function revalidateCurrentPosition() {
+  if (!boardApiRef.value) return
+  const fen = boardApiRef.value.getFen()
+  console.log('[DEBUG revalidateCurrentPosition] FEN:', fen)
+  const result = validateFenLegality(fen)
+  validationErrors.value = result.errors
+  canConfirmCorrection.value = result.valid
+}
+
+async function confirmCorrection() {
+  if (!boardApiRef.value || !props.bookId || !props.board?.id) return
+
+  const fen = boardApiRef.value.getFen()
+  const validation = validateFenLegality(fen)
+  if (!validation.valid) {
+    validationErrors.value = validation.errors
+    return
+  }
+
+  try {
+    await updateBoardFen(props.bookId, props.board.id, fen)
+    correctionMode.value = 'none'
+    validationErrors.value = []
+    runEngineAnalysis()
+  } catch (e) {
+    if (e instanceof IllegalPositionError) {
+      validationErrors.value = e.details
+    } else {
+      console.error('Error al guardar la corrección:', e)
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -421,6 +569,7 @@ onUnmounted(() => {
   gap: 10px;
   overflow: hidden;
   box-sizing: border-box;
+  position: relative;
 }
 
 .board-wrapper {
@@ -541,5 +690,106 @@ onUnmounted(() => {
   gap: 6px;
   flex-shrink: 0;
   padding-right: 8px;
+}
+.board-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.correction-banner--inline {
+  width: 100%;
+}
+.correction-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #3a2230;
+  border: 1px solid #6e2f44;
+  border-radius: 6px;
+  flex-shrink: 0;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.btn-start-review,
+.btn-confirm-correction {
+  align-self: flex-start;
+  padding: 6px 14px;
+  background: #2d5a9e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-confirm-correction:disabled {
+  background: #3d4560;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.piece-correction-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #2d3447;
+  border: 1px solid #3d4560;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.piece-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.piece-option-btn {
+  padding: 6px 8px;
+  background: #3d4560;
+  color: #e0e0e0;
+  border: 1px solid #4a5278;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.piece-option-btn:hover { background: #4a5278; }
+
+.piece-option-empty {
+  grid-column: span 2;
+  background: #5a2d2d;
+}
+
+.popover-cancel {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  color: #6b7a99;
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+}
+.board-load-error-modal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  background: #3a2230;
+  border: 1px solid #6e2f44;
+  border-radius: 6px;
+  text-align: center;
+}
+.error-message {
+  margin: 0;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 </style>

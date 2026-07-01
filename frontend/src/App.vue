@@ -17,13 +17,13 @@
         <span class="app-logo"><font-awesome-icon icon="chess-knight" /></span>
         <span class="app-title">ChessPDF</span>
       </div>
+      <BookList @bookSelected="onBookSelected" />
       <div class="user-bar">
         <span class="username"><font-awesome-icon icon="user" /> {{ currentUsername }}</span>
         <button class="btn-logout" @click="handleLogout" title="Cerrar sesión">
           <font-awesome-icon icon="arrow-right-from-bracket" />
         </button>
       </div>
-      <BookList @bookSelected="onBookSelected" />
     </aside>
 
     <main class="main-content">
@@ -146,7 +146,8 @@ const startResize = (event: MouseEvent) => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 16px;
-  border-bottom: 1px solid #2d3447;
+  border-top: 1px solid #2d3447;
+  margin-top: auto;
   font-size: 13px;
   color: #888;
 }
