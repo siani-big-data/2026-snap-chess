@@ -36,7 +36,6 @@ public class AnalysisService implements AnalysisUseCase {
         AnalysisNode target = navigateTo(root, path);
         target.addOrGetChild(move);
 
-        target.addOrGetChild(move);
         bookRepository.updateBoardAnalysis(bookId, boardId, root);
         log.info("Jugada '{}' añadida en tablero '{}' path={}", move, boardId, path);
 

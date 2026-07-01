@@ -30,7 +30,7 @@ class ChessFileRepositoryTest {
     void save_shouldCreatePhysicalFile() throws IOException {
         // 1. Preparar datos de prueba
         UUID bookId = UUID.randomUUID();
-        Book book = new Book(bookId, "Test Book", "test.pdf", 100, BookCategory.GENERAL);
+        Book book = new Book(bookId, "Test Book", "test.pdf", 100, BookCategory.GENERAL, UUID.randomUUID());
 
         // 2. Ejecutar
         repository.save(book);

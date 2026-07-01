@@ -46,12 +46,14 @@ class AnalyzeBoardServiceTest {
     void analyzePage_replacesBoardsOnSamePage_andBuildsEmptyFen() {
         UUID bookId = UUID.randomUUID();
         int page = 2;
+        UUID ownerId = UUID.randomUUID();
         ChessFile existing = new ChessFile(
                 bookId,
                 "Título",
                 "f.pdf",
                 10,
                 BookCategory.GENERAL,
+                ownerId,
                 new ArrayList<>(List.of(
                         new ChessBoard("old-1", page, new BoundingBox(1, 1, 5, 5), Fen.STARTING_POSITION,
                                 new AnalysisNode(null, "", null)),
