@@ -1,7 +1,7 @@
 import type { AnalysisNode, AddMoveRequest } from '../types/chess.types'
 import { authFetch } from './authFetch.ts'
 
-const BASE_URL = 'http://localhost:8080/api'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 export async function addMove(
     bookId: string,
@@ -90,7 +90,11 @@ export async function updateBoardFen(
 }
 
 export class IllegalPositionError extends Error {
-    constructor(public readonly details: string[]) {
-        super('Posición ilegal: ' + details.join('; '))
+    readonly details: string[]
+
+    constructor(details: string[]) {
+        super('Posicion ilegal: ' + details.join('; '))
+        this.details = details
+        this.name = 'IllegalPositionError'
     }
 }

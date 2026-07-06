@@ -1,16 +1,16 @@
 # ── Java / Maven ──────────────────────────────
 backend/target/
-backend/.mvn/
 **/*.class
 **/*.jar
 **/*.war
 **/*.ear
+!**/.mvn/wrapper/maven-wrapper.jar
 !**/test/**/*.jar
 
 # ── Spring Boot ───────────────────────────────
 backend/HELP.md
 
-# Chess engine binaries
+# Chess engine binaries (local dev; Docker usa apt install stockfish)
 backend/engines/
 
 # ── Node / Frontend ───────────────────────────
@@ -21,8 +21,9 @@ frontend/.env.local
 frontend/.env
 
 # ── Python / AI Service ───────────────────────
-ai-service/__pycache__/
-ai-service/*.pyc
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
 ai-service/.venv/
 ai-service/.env
 ai-service/dist/
@@ -42,4 +43,4 @@ desktop.ini
 # ── Datos runtime (NUNCA versionar) ───────────
 **/*.chess
 **/*.pdf
-**/data/
+backend/data/

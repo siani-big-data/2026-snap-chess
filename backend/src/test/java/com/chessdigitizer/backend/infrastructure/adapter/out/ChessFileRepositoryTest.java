@@ -3,6 +3,9 @@ package com.chessdigitizer.backend.infrastructure.adapter.out;
 import com.chessdigitizer.backend.domain.model.Book;
 import com.chessdigitizer.backend.application.config.GlobalProperties;
 import com.chessdigitizer.backend.domain.model.BookCategory;
+import com.chessdigitizer.backend.infrastructure.adapter.out.security.CurrentUserContextHolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,7 +18,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.test.util.AssertionErrors.assertTrue;
 
 @SpringBootTest
 class ChessFileRepositoryTest {
@@ -26,28 +28,44 @@ class ChessFileRepositoryTest {
     @Autowired
     private GlobalProperties.StorageProperties storageProperties;
 
-    @Test
-    void save_shouldCreatePhysicalFile() throws IOException {
-        // 1. Preparar datos de prueba
-        UUID bookId = UUID.randomUUID();
-        Book book = new Book(bookId, "Test Book", "test.pdf", 100, BookCategory.GENERAL, UUID.randomUUID());
+    private UUID testOwnerId;
 
-        // 2. Ejecutar
-        repository.save(book);
+    @BeforeEach
+    void setUp() {
+        testOwnerId = UUID.randomUUID();
+        CurrentUserContextHolder.set(testOwnerId);
+    }
 
-        // 3. Verificar que el archivo existe físicamente
-        Path expectedPath = Paths.get(storageProperties.getChessPath(), bookId + ".chess");
-        assertTrue("El archivo .chess debería existir en el disco", Files.exists(expectedPath));
-
-        // 4. Limpieza (opcional)
-        // repository.deleteById(bookId);
+    @AfterEach
+    void tearDown() {
+        CurrentUserContextHolder.clear();
     }
 
     @Test
-    void findAll_shouldReturnListOfBooks() {
-        // Al tener el @PostConstruct en AppConfig, las carpetas ya existen.
-        // Podrías guardar 2 libros y verificar que findAll() devuelve una lista de tamaño 2.
+    void save_shouldCreatePhysicalFile() throws IOException {
+        UUID bookId = UUID.randomUUID();
+        Book book = new Book(bookId, "Test Book", "test.pdf", 100, BookCategory.GENERAL, testOwnerId);
+
+        repository.save(book);
+
+        Path expectedPath = Paths.get(storageProperties.getChessPath(), testOwnerId.toString(), bookId + ".chess");
+        assertTrue(Files.exists(expectedPath), "El archivo .chess debería existir en el disco");
+
+        repository.deleteById(bookId);
+    }
+
+    @Test
+    void findAll_shouldReturnListOfBooks() throws IOException {
+        UUID bookId = UUID.randomUUID();
+        Book book = new Book(bookId, "Test Book", "test.pdf", 100, BookCategory.GENERAL, testOwnerId);
+        repository.save(book);
+
         List<Book> books = repository.findAll();
+
         assertNotNull(books);
+        assertTrue(books.stream().anyMatch(b -> b.id().equals(bookId)),
+                "findAll debe devolver el libro guardado para el usuario actual");
+
+        repository.deleteById(bookId);
     }
 }

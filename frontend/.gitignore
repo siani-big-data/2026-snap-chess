@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Mantener .env.production versionado (proxy /api en Docker)
+!.env.production

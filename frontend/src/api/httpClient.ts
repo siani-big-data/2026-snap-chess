@@ -2,7 +2,7 @@ import axios from 'axios'
 import { getToken, handleSessionExpired } from '../auth/authState'
 
 export const apiClient = axios.create({
-    baseURL: '/api',
+    baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
     headers: { 'Content-Type': 'application/json' }
 })
 
