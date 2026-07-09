@@ -20,9 +20,9 @@ Este repositorio forma parte del Trabajo de Fin de Grado:
 
 *Sistema inteligente de digitalización e interacción de diagramas de ajedrez en documentos PDF*
 
-**Autor:** Daniel Moreno López
-**Tutores:** José Juan Hernández Cabrera y José Juan Hernández Gálvez
-**Titulación:** Grado en Ingeniería Informática
+**Autor:** Daniel Moreno López<br>
+**Tutores:** José Juan Hernández Cabrera y José Juan Hernández Gálvez<br>
+**Titulación:** Grado en Ingeniería Informática<br>
 **Fecha:** Junio de 2026
 
 ---
