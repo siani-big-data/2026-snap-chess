@@ -1,0 +1,125 @@
+services:
+
+  # ── Frontend: Vue 3 + Nginx ─────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chessreader-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - chessreader-net
+    restart: unless-stopped
+
+  # ── Backend: Spring Boot Java 21 ────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chessreader-backend
+    ports:
+      - "8080:8080"
+    environment:
+      # Ruta del binario de Stockfish instalado en la imagen
+      - CHESS_ENGINE_PATH=/usr/bin/stockfish
+      # Directorio de datos persistentes (.chess + SQLite)
+      - CHESS_DATA_PATH=/data
+      # URLs de los microservicios de IA (nombres = nombres de servicio Docker)
+      - MS_BOARD_DETECTOR_URL=http://ms-board-detector:8001
+      - MS_BOARD_SEGMENTER_URL=http://ms-board-segmenter:8002
+      - MS_PIECE_CLASSIFIER_URL=http://ms-piece-classifier:8003
+      # Perfil Spring (usa application-prod.properties si existe)
+      - SPRING_PROFILES_ACTIVE=prod
+    volumes:
+      # Datos persistentes: libros .chess y base de datos SQLite
+      - chess-data:/data
+    depends_on:
+      ms-board-detector:
+        condition: service_healthy
+      ms-board-segmenter:
+        condition: service_healthy
+      ms-piece-classifier:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - chessreader-net
+    restart: unless-stopped
+
+  # ── MS1: Detector de tablero (YOLOv8) ───────────────────────────────────────
+  ms-board-detector:
+    build:
+      context: ./ai-service/ms-board-detector
+      dockerfile: Dockerfile
+    container_name: chessreader-ms1
+    # Solo accesible internamente; no exponemos puerto al host en producción
+    expose:
+      - "8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - chessreader-net
+    restart: unless-stopped
+
+  # ── MS2: Segmentador de casillas (Sobel + Hough) ────────────────────────────
+  ms-board-segmenter:
+    build:
+      context: ./ai-service/ms-board-segmenter
+      dockerfile: Dockerfile
+    container_name: chessreader-ms2
+    expose:
+      - "8002"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - chessreader-net
+    restart: unless-stopped
+
+  # ── MS3: Clasificador de piezas (ResNet-18) ──────────────────────────────────
+  ms-piece-classifier:
+    build:
+      context: ./ai-service/ms-piece-classifier
+      dockerfile: Dockerfile
+    container_name: chessreader-ms3
+    expose:
+      - "8003"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s  # ResNet necesita más tiempo para cargar los pesos
+    networks:
+      - chessreader-net
+    restart: unless-stopped
+
+# ── Volúmenes ────────────────────────────────────────────────────────────────
+volumes:
+  chess-data:
+    driver: local
+    # En producción real, sustituir por un bind mount a una ruta del host:
+    # driver_opts:
+    #   type: none
+    #   device: /srv/chessreader/data
+    #   o: bind
+
+# ── Red interna ──────────────────────────────────────────────────────────────
+networks:
+  chessreader-net:
+    driver: bridge
