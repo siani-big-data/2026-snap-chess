@@ -1,0 +1,67 @@
+package com.chessdigitizer.backend.infrastructure.adapter.out;
+
+import com.chessdigitizer.backend.application.config.GlobalProperties;
+import com.chessdigitizer.backend.domain.port.out.CurrentUserPort;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class LocalPdfRendererTest {
+
+    @Mock
+    private CurrentUserPort currentUserPort;
+
+    /** PDF mínimo de una página (mismo patrón que las pruebas de integración de libros). */
+    private static final byte[] MINIMAL_PDF = """
+            %PDF-1.0
+            1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]>>endobj
+            trailer<</Root 1 0 R/Size 4>>
+            %%EOF""".getBytes();
+
+    @Test
+    void renderPage_returnsPngBytes(@TempDir Path tempDir) throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID bookId = UUID.randomUUID();
+        // LocalPdfRenderer resuelve la ruta como {booksPath}/{ownerId}/{bookId}.pdf
+        Path ownerDir = tempDir.resolve(ownerId.toString());
+        Files.createDirectories(ownerDir);
+        Files.write(ownerDir.resolve(bookId + ".pdf"), MINIMAL_PDF);
+
+        GlobalProperties.StorageProperties storage = new GlobalProperties.StorageProperties();
+        storage.setBooksPath(tempDir.toString());
+        storage.setChessPath(tempDir.resolve("chess").toString());
+
+        when(currentUserPort.getCurrentUserId()).thenReturn(ownerId);
+
+        LocalPdfRenderer renderer = new LocalPdfRenderer(storage, currentUserPort);
+
+        byte[] png = renderer.renderPage(bookId, 1, 96);
+
+        assertNotNull(png, "renderPage debe devolver bytes no nulos");
+        assertTrue(png.length > 50, "El PNG debería tener cabecera y cuerpo, tamaño: " + png.length);
+        assertEquals((byte) 0x89, png[0], "El primer byte de un PNG debe ser 0x89");
+    }
+
+    @Test
+    void renderPage_throwsWhenPdfMissing(@TempDir Path tempDir) {
+        UUID ownerId = UUID.randomUUID();
+        GlobalProperties.StorageProperties storage = new GlobalProperties.StorageProperties();
+        storage.setBooksPath(tempDir.toString());
+        when(currentUserPort.getCurrentUserId()).thenReturn(ownerId);
+
+        LocalPdfRenderer renderer = new LocalPdfRenderer(storage, currentUserPort);
+
+        assertThrows(RuntimeException.class, () -> renderer.renderPage(UUID.randomUUID(), 1, 72),
+                "Debe lanzar RuntimeException cuando el PDF no existe en disco");
+    }
+}
